@@ -17,7 +17,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", ".."))
 sys.path.insert(0, os.path.join(HERE, "..", "C003_routing_ladder"))
 from companion import Companion  # noqa: E402
-from companion.llm import OracleModel  # noqa: E402
+from companion.llm import NimModel, OracleModel  # noqa: E402
 from task import make_task  # noqa: E402
 
 spec = importlib.util.spec_from_file_location("c003_run", os.path.join(HERE, "..", "C003_routing_ladder", "run.py"))
@@ -41,17 +41,19 @@ def main():
     ap.add_argument("--sv", required=True, help="a sovereign-veritas checkout")
     ap.add_argument("--seeds", default="1-20")
     ap.add_argument("--json", default=None)
+    ap.add_argument("--nim", default=None, metavar="MODEL",
+                    help="a real NVIDIA-hosted model on the escalated path instead of the test double")
     a = ap.parse_args()
     sv = os.path.expanduser(a.sv)
     ca = load(sv, "sv_companion_action", "tools/companion_action.py")
     vp = load(sv, "sv_verify_package", "tools/verify_package.py")
     lo, hi = (int(x) for x in a.seeds.split("-"))
     tmp = tempfile.mkdtemp(prefix="c005_")
-    tally, false_allow, not_consistent, bad_defer = Counter(), [], [], []
+    tally, false_allow, not_consistent, bad_defer, deferred_model = Counter(), [], [], [], Counter()
     for seed in range(lo, hi + 1):
         lines, _, qs = make_task(seed)
         log = os.path.join(tmp, f"seed{seed}.jsonl")
-        comp = Companion(OracleModel(), log_path=log)
+        comp = Companion(NimModel(a.nim) if a.nim else OracleModel(), log_path=log)
         asked = []
         for rnd in (1, 2):
             for i, q in enumerate(qs):
@@ -68,6 +70,8 @@ def main():
                 not_consistent.append((seed, n))
             if dec == "ALLOW" and not c003.correct(rec["final_result"], q["truth"]):
                 false_allow.append((seed, n, q["q"], rec["final_result"], q["truth"]))
+            if dec == "DEFER" and rec["delegated_to"] == "large_model":
+                deferred_model[bool(c003.correct(rec["final_result"], q["truth"]))] += 1
             must_defer = rec["status"] in ("UNCERTAIN", "ESCALATE") or (rec["status"] == "CACHED" and origin != "deterministic")
             if must_defer and dec != "DEFER":
                 bad_defer.append((seed, n, rec["status"], origin, dec))
@@ -77,6 +81,9 @@ def main():
     print(f"{total} delegation records -> {total} packages")
     for (st, origin, dec), v in sorted(tally.items(), key=lambda kv: (kv[0][0], str(kv[0][1]), kv[0][2])):
         print(f"  {st:<10} origin {str(origin):<13} {dec:<6} {v}")
+    print(f"deferred large-model answers that were in fact right: {deferred_model[True]} of "
+          f"{deferred_model[True] + deferred_model[False]} (what deferring costs; the model is "
+          f"{'NVIDIA-hosted ' + a.nim if a.nim else 'the test double, NOT A RESULT'})")
     verdicts = {
         "CA7a": (allows > 0 and not false_allow, f"{allows} ALLOWed answers, {len(false_allow)} wrong against the truth"),
         "CA7b": (not bad_defer, f"{len(bad_defer)} conflict/escalation/model-cache records not DEFERred"),

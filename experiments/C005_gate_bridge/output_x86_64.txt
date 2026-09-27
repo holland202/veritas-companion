@@ -5,6 +5,7 @@ VERITAS-COMPANION C005 (CA7) | seeds 1-20 | x86_64 | Python 3.11.15
   ESCALATE   origin None          DEFER  20
   SUPPORTED  origin None          ALLOW  239
   UNCERTAIN  origin None          DEFER  60
+deferred large-model answers that were in fact right: 0 of 80 (what deferring costs; the model is the test double, NOT A RESULT)
 HELD   CA7a  480 ALLOWed answers, 0 wrong against the truth
 HELD   CA7b  0 conflict/escalation/model-cache records not DEFERred
 HELD   CA7c  640/640 packages verify CONSISTENT

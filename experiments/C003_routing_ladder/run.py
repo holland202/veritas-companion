@@ -18,7 +18,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", ".."))
 sys.path.insert(0, HERE)
 from companion import Companion  # noqa: E402
-from companion.llm import LlamaServer, OracleModel  # noqa: E402
+from companion.llm import LlamaServer, NimModel, OracleModel  # noqa: E402
 from companion.runtime import PROMPT  # noqa: E402
 from task import make_task  # noqa: E402
 
@@ -48,6 +48,8 @@ def main():
     ap.add_argument("--seed", type=int, required=True)
     ap.add_argument("--model", action="store_true", help="also run the language-model arms on a local llama-server")
     ap.add_argument("--oracle", action="store_true")
+    ap.add_argument("--nim", default=None, metavar="MODEL",
+                    help="an NVIDIA-hosted model as the large model (key in ~/.nvidia_api_key); an extra arm, not M1")
     ap.add_argument("--server", default="http://127.0.0.1:8080")
     ap.add_argument("--expect-model", default=None)
     ap.add_argument("--json", default=None)
@@ -91,8 +93,8 @@ def main():
     print(f"null (naive first-match) wrong on L0 lookups: {out['naive_wrong_on_L0']}/{out['L0_questions']}")
     print(f"evidence each question needs still present: dedup {out['evidence_kept_dedup']}/{out['questions']}, "
           f"random drop of the same number of lines {out['evidence_kept_random']}/{out['questions']}")
-    if a.model or a.oracle:
-        model = OracleModel() if a.oracle else LlamaServer(a.server)
+    if a.model or a.oracle or a.nim:
+        model = OracleModel() if a.oracle else (NimModel(a.nim) if a.nim else LlamaServer(a.server))
         if isinstance(model, LlamaServer):
             model.require_model(a.expect_model)
         base = comp2 = 0
