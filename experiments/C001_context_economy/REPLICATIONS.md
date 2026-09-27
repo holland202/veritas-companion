@@ -89,3 +89,53 @@ registered and unrun.
 Before a local-model run, the runner should refuse if the server reports a different model file than
 the one intended, as sovereign-veritas' `model_action.py` already does (`--model-file`). That guard is
 to be added here.
+
+## R-PHI: results (S25 CPU, Phi-3-mini-4k-instruct q4, 2026-09-27). 5 of 6 held, K5 FAILED
+
+The server's model was checked before the run (`/props` reported `Phi-3-mini-4k-instruct-q4.gguf`), and
+every run printed `model: .../Phi-3-mini-4k-instruct-q4.gguf`.
+
+```
+VERITAS-COMPANION C001 | seed 1 | aarch64 | Python 3.14.6
+arm                 large tok    gain     acc  lookup  conflict   aggr  cache  determ  large  wall s
+BASELINE                49098    1.00  0.3000  0.2000    0.6667 0.0000      0       0     30   105.7
+COMPANION                3617   13.57  0.5000  1.0000    0.0000 0.0000     20       5      5    30.3
+N1-NO-ESCALATION         1448   33.91  0.5000  1.0000    0.0000 0.0000     20       8      2     1.0
+N2-RANDOM-DROP           2545   19.29  0.6000  1.0000    0.3333 0.0000     20       6      4    83.7
+
+VERITAS-COMPANION C001 | seed 2 | aarch64 | Python 3.14.6
+BASELINE                49410    1.00  0.6000  0.8000    0.6667 0.0000      0       0     30   416.4
+COMPANION                3640   13.57  0.6000  1.0000    0.3333 0.0000     20       5      5    91.7
+N1-NO-ESCALATION         1456   33.94  0.5000  1.0000    0.0000 0.0000     20       8      2    13.4
+N2-RANDOM-DROP           3250   15.20  0.4000  0.6000    0.3333 0.0000     20       5      5   145.6
+
+VERITAS-COMPANION C001 | seed 3 | aarch64 | Python 3.14.6
+BASELINE                48906    1.00  0.0000  0.0000    0.0000 0.0000      0       0     30   424.0
+COMPANION                3608   13.55  0.5000  1.0000    0.0000 0.0000     20       5      5   110.3
+N1-NO-ESCALATION         1444   33.87  0.5000  1.0000    0.0000 0.0000     20       8      2     8.7
+N2-RANDOM-DROP           2561   19.10  0.6000  1.0000    0.3333 0.0000     20       6      4    52.4
+```
+
+| | measured | |
+|---|---|---|
+| K1 | 13.57, 13.57, 13.55 | **HELD** |
+| K2 | 0.5 vs 0.3; 0.6 vs 0.6; 0.5 vs 0.0 | **HELD** |
+| K3 | 232.3 s / 946.1 s = 0.2455 | **HELD** |
+| K4 | N1 conflict 0.0000 on every seed | **HELD** |
+| K5 | N2 pooled conflict 0.3333, companion pooled conflict 0.1111: N2 is **not** below the companion | **FAILED** |
+| K6 | companion lookups 1.0000 on every seed | **HELD** |
+
+**Why K5 failed (diagnosis after the run).** The companion sends every conflict question to the model,
+and Phi-3 answered them badly on the deduplicated log: 0 of 3, 1 of 3 and 0 of 3. On seeds 1 and 3, N2
+shows 6 deterministic answers where the companion has 5. Its random deletion happened to remove the
+stale values of one conflicted asset, so the lookup tier saw a single value (the updated one) and
+answered it correctly **by luck**. The luck is real, and K5 is scored as registered. What it exposes
+is that K5 compares answers the model produces, so it depends on the model; with a weak model it no
+longer isolates the companion. A control for "deduplication keeps evidence that random deletion
+loses" should measure the evidence (was the updated value still present?), not the model's answer.
+C003 will do that.
+
+**What else Phi-3 shows.** Phi-3 alone read the log badly: 0.2000, 0.8000 and 0.0000 on plain lookups,
+and 0.0000 overall on seed 3. The companion answered all lookups from the log (1.0000). The token
+saving held at 13.55-13.57× on a second model with a different tokenizer. Wall time swung from 105.7 s
+to 424.0 s for the same baseline arm and is not a claim.

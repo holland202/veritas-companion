@@ -1,6 +1,7 @@
 """Model backends. LlamaServer talks to a llama.cpp server (stdlib only). OracleModel exists for code tests:
 it reads the answer out of the context by rule, so any number produced with it is NOT A RESULT."""
 import json
+import os
 import re
 import urllib.request
 
@@ -16,6 +17,14 @@ class LlamaServer:
                                      headers={"Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=600) as r:
             return json.loads(r.read())
+
+    def require_model(self, expected):
+        """Refuse to run unless the server reports the intended model file (the R-PHI port-conflict lesson)."""
+        got = self.model_id()
+        if expected and os.path.basename(got) != os.path.basename(expected):
+            raise SystemExit(f"COULD NOT RUN: server reports model {os.path.basename(got)!r}, expected "
+                             f"{os.path.basename(expected)!r}. Is another llama-server holding the port?")
+        return got
 
     def model_id(self):
         with urllib.request.urlopen(self.url + "/props", timeout=30) as r:

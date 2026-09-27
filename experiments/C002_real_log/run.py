@@ -106,6 +106,8 @@ def main():
     ap.add_argument("--seed", type=int, required=True)
     ap.add_argument("--server", default="http://127.0.0.1:8080")
     ap.add_argument("--oracle", action="store_true")
+    ap.add_argument("--expect-model", default=None, metavar="FILE",
+                    help="refuse to run unless the local server reports this model file")
     ap.add_argument("--nim", default=None, metavar="MODEL", help="use an NVIDIA-hosted model as the large model")
     ap.add_argument("--json", default=None)
     ap.add_argument("--asks", type=int, default=1, help="times each question is asked (repeats go to the cache)")
@@ -126,6 +128,8 @@ def main():
         print("changing e.g.: " + ", ".join(multi[:8]))
         return
     model = OracleModel() if a.oracle else (NimModel(a.nim) if a.nim else LlamaServer(a.server))
+    if isinstance(model, LlamaServer):
+        model.require_model(a.expect_model)
     with open(os.path.expanduser(a.log), encoding="utf-8", errors="replace") as fh:
         all_lines = fh.readlines()
     start, lines, asks = make_task(all_lines, a.seed, model, a.asks)

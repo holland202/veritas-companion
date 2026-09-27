@@ -12,5 +12,5 @@
   "K6"
  ],
  "evidence": "experiments/C001_context_economy/RESULTS.md",
- "limits": "Synthetic log built with redundancy; one model (qwen2.5-1.5b q4_k_m, CPU); seed 3 lost one aggregate question the baseline got; tier 0 only. Replicated on the Adreno 830 GPU (R-ADRENO, 6 of 6); the NVIDIA-hosted replication could not run (llama-3.3-70b retired; the amended nemotron-70b listed but not served, HTTP 404); gemma-4-31b ran seed 1 in C004 (gain 13.50, accuracy equal)."
+ "limits": "Synthetic log built with redundancy; one model (qwen2.5-1.5b q4_k_m, CPU); seed 3 lost one aggregate question the baseline got; tier 0 only. Replicated on the Adreno 830 GPU (R-ADRENO, 6 of 6); the NVIDIA-hosted replication could not run (llama-3.3-70b retired; the amended nemotron-70b listed but not served, HTTP 404); gemma-4-31b ran seed 1 in C004 (gain 13.50, accuracy equal). R-PHI (Phi-3-mini): 5 of 6, K5 failed: the N2 control's conflict answers depend on the model, and with Phi-3 random deletion helped by luck; lookups 1.0 and gain 13.55-13.57x held."
 }
