@@ -8,6 +8,7 @@ Each model is first given a qualifying probe (one plain lookup on a tiny log; it
 models run C001's four arms on the frozen C001 task.
 """
 import argparse
+import re
 import json
 import os
 import platform
@@ -70,7 +71,8 @@ def main():
                 text, _, _ = NimModel(name).complete(PROMPT.format(context=PROBE_CTX, question=PROBE_Q))
                 status = "SERVES+ANSWERS" if c001.correct(text, PROBE_A) else f"SERVES, NO USABLE ANSWER ({text[:30]!r})"
             except SystemExit as exc:
-                status = "NOT SERVED: " + str(exc)[-60:]
+                m = re.search(r"HTTP Error (\d+)[^)]*", str(exc))  # the HTTP code, not the hint text after it
+                status = "NOT SERVED: " + (m.group(0) if m else str(exc)[:60])
             print(f"{name:46} {status}", flush=True)
             if status == "SERVES+ANSWERS":
                 good.append(name)
