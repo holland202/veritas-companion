@@ -8,18 +8,10 @@ from dataclasses import asdict, dataclass, field
 
 from .fingerprint import fingerprint, normalize
 from .kv import norm_key, parse_kv
+from .runtime_types import Result  # noqa: F401  (re-exported)
 
 PROMPT = ("Context:\n{context}\n\nAnswer with the value only. If a value was updated, give the latest value.\n"
           "Question: {question}\nAnswer:")
-
-
-@dataclass
-class Result:
-    """What the companion hands back. status: SUPPORTED (answered with evidence), UNCERTAIN (cheap tier saw
-    conflicting evidence), ESCALATE (outside the cheap tiers), CACHED (seen before)."""
-    status: str
-    value: str | None = None
-    evidence: list = field(default_factory=list)
 
 
 @dataclass
@@ -58,7 +50,7 @@ class Companion:
     @staticmethod
     def extract(lines, asset, fld):
         """All values stated for (asset, field), in order, with the lines that state them."""
-        pat = re.compile(rf"^(?:UPDATE )?{re.escape(asset)} {fld} (\S+)")
+        pat = re.compile(rf"^(?:t=\d+ )?(?:UPDATE )?{re.escape(asset)} {fld} (\S+)$")
         return [(m.group(1), ln) for ln in lines if (m := pat.match(ln.strip()))]
 
     @staticmethod
@@ -75,6 +67,11 @@ class Companion:
         elif k:
             found = self.extract_kv(lines, k.group(1))
         else:
+            from .tools import TOOLS
+            for tool in TOOLS:
+                r = tool(lines, question.strip())
+                if r is not None:
+                    return r
             return Result("ESCALATE")
         values = list(dict.fromkeys(v for v, _ in found))
         if len(values) == 1:
