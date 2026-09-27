@@ -38,23 +38,31 @@ def facts(lines):
     return by, single, multi
 
 
-def make_task(all_lines, seed, model, asks_each=1):
-    """Seeded window with enough of both question kinds, shrunk until the full window fits the model's context."""
+def make_task(all_lines, seed, model, asks_each=1, max_tries=400):
+    """Seeded order of window starts; the first window that still holds enough facts of both kinds once it
+    is trimmed to fit the model's context is used. A window that fails is skipped, not repaired."""
     rng = np.random.default_rng(seed)
     lines = [ln.rstrip("\n")[:MAX_CHARS] for ln in all_lines if ln.strip()]
-    starts = rng.permutation(max(1, len(lines) - WINDOW + 1))
-    for s in starts[:2000]:
+    tried = 0
+    for s in rng.permutation(max(1, len(lines) - WINDOW + 1)):
         win = lines[s:s + WINDOW]
+        by, single, multi = facts(win)
+        if len(single) < N_LOOKUP or len(multi) < N_CONFLICT:
+            continue
+        tried += 1
+        if tried > max_tries:
+            break
+        while win and len("\n".join(win)) > 4 * TOKEN_LIMIT:  # cheap trim by characters before asking the tokenizer
+            win = win[:-5]
+        while win and model.count_tokens(PROMPT.format(context="\n".join(win), question="x" * 40)) > TOKEN_LIMIT:
+            win = win[:-5]
         by, single, multi = facts(win)
         if len(single) >= N_LOOKUP and len(multi) >= N_CONFLICT:
             break
     else:
-        raise SystemExit("COULD NOT RUN: no window of this log has enough key = value facts of both kinds")
-    while model.count_tokens(PROMPT.format(context="\n".join(win), question="x" * 40)) > TOKEN_LIMIT:
-        win = win[:-10]
-        by, single, multi = facts(win)
-        if len(single) < N_LOOKUP or len(multi) < N_CONFLICT:
-            raise SystemExit("COULD NOT RUN: window no longer holds enough facts once it fits the context")
+        raise SystemExit("COULD NOT RUN: no window of this log holds enough facts of both kinds within the context")
+    if tried > max_tries:
+        raise SystemExit(f"COULD NOT RUN: {max_tries} eligible windows tried; none fits the context with enough facts")
     qs = [(f"What is the value of {k}?", by[k][0], "lookup") for k in rng.choice(single, N_LOOKUP, replace=False)]
     qs += [(f"What is the value of {k}?", by[k][-1], "conflict") for k in rng.choice(multi, N_CONFLICT, replace=False)]
     asks = [q for q in qs for _ in range(asks_each)]

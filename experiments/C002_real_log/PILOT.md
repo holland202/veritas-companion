@@ -59,3 +59,18 @@ built those into the test myself.
 - Template-level deduplication (collapsing lines that differ only in numbers, while keeping the
   numbers the questions need) is the tier-0 tool this log calls for. That is a new mechanism, so it
   gets its own pilot (C003); it is not slipped into C002.
+
+## Logcat probe, and a plumbing fix (2026-09-27)
+
+The operator captured `logcat -d -t 5000` through Shizuku (`rish`) into `~/logcat_frozen.log`. The
+probe reported 5450 lines, 5159 distinct, 1860 key = value lines, 182 single-valued keys, 103
+changing keys, and 325 usable 150-line windows (counting every 10th start). There is far more to
+sample here than in the llama-server log, which offered 1 window.
+
+The first practice runs stopped with `COULD NOT RUN: window no longer holds enough facts once it fits
+the context`, on all three seeds. That was the benchmark's plumbing, not the companion. Logcat lines
+are long, so a 150-line window is far over the 3500-token budget. The generator trimmed the first
+eligible window until it fitted, found too few facts left, and gave up instead of trying the next
+window. It now trims each candidate by characters, then by the tokenizer, and moves on to the next
+eligible window when a trimmed one is short of facts. No change was made to the companion.
+Values are still hidden (`--keys-only`).
