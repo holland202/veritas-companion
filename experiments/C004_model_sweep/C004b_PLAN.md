@@ -18,7 +18,7 @@ Output: `serving_probe_S25_2026-09-27.txt`. The reason column there reads "known
 instead of the HTTP code, because of a display bug introduced the same day (`5bb0312` added a hint to the
 error text, and the probe printed its last 60 characters). The probe now prints the HTTP code.
 
-- 36 listed models probed; 3 serve and answer correctly: `google/gemma-4-31b-it`, `mistralai/mistral-nemotron`
+- 37 listed models probed; 3 serve and answer correctly: `google/gemma-4-31b-it`, `mistralai/mistral-nemotron`
   and `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning`.
 - Step 2, decided before the probe, excludes reasoning models, which leaves **2**.
 - Step 3 allowed lowering S0 to "at least 3 models", and no lower. **With 2, C004b is not registered.** A
