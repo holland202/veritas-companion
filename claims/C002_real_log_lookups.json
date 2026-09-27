@@ -1,0 +1,14 @@
+{
+ "id": "C002",
+ "status": "TESTED",
+ "claim": "On a real Android logcat capture, the tier-0 companion answered 5 of 8 key=value questions per window deterministically and correctly on every seed, making it more accurate than the 1.5B model alone on every seed with 2.67-2.86x fewer large-model tokens; exact dedup removed at most 8% of lines.",
+ "experiment": "C002",
+ "predictions": [
+  "R1",
+  "R2",
+  "R3",
+  "R4"
+ ],
+ "evidence": "experiments/C002_real_log/RESULTS.md",
+ "limits": "One log, one device, one model; conflict questions ill-posed on logcat and not scored; questions built by the same key=value reader the lookup tier uses."
+}
