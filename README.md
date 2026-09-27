@@ -19,7 +19,7 @@ with a status and its evidence, and every delegation is logged, so any saving is
 | delegation log (task, tier, tokens, status, escalation, final answer) | **built** (JSONL) |
 | tier 2, large model through a llama.cpp server | **built** (`companion/llm.py`) |
 | tier 1, small local model (about 135M) for fuzzy-but-small jobs | **designed only, NOT TRAINED, not wired** |
-| [C001](experiments/C001_context_economy/): does tier 0 cut the large model's tokens without losing accuracy? | **6 of 6 held** on the S25: 13.9× fewer large-model tokens, 21× less wall time with overhead counted, accuracy within one question of the model alone (better on 2 of 3 seeds) |
+| [C001](experiments/C001_context_economy/): does tier 0 cut the large model's tokens without losing accuracy? | **6 of 6 held** on the S25: 13.9× fewer large-model tokens, 21× less wall time with overhead counted, accuracy within one question of the model alone (equal on seed 1, better on seed 2, one question worse on seed 3) |
 | token-veritas context selection as a companion job | designed only |
 | veritas-holo state fingerprints (E003) as a companion job | designed only |
 
