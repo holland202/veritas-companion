@@ -9,7 +9,7 @@ reported NOT RUN. --selftest checks the scorer and the shuffle control with an o
 it is given (anti-vacuity: the instrument must be able to fail). The arms see only question text and log
 lines, never the truth.
 """
-import argparse, csv, hashlib, importlib.util, json, os, platform, re, sys, tempfile
+import argparse, csv, hashlib, importlib.util, json, os, platform, re, sys, tempfile, time
 from collections import Counter, defaultdict
 
 import numpy as np
@@ -57,6 +57,29 @@ class OracleReader:
         if not mine:
             return "", 0, 0
         return (mine[-1] if "last" in q else mine[0]), 0, 0
+
+
+class Progress:
+    """Wraps the model and prints one line per call to stderr, so a long run is never silent.
+    Added 2026-09-27 after the first S25 run sat 56 minutes with no output (see RESULTS.md)."""
+    def __init__(self, model, total):
+        self.m, self.total, self.k, self.t0 = model, total, 0, time.time()
+
+    def model_id(self):
+        return self.m.model_id()
+
+    def count_tokens(self, text):
+        return self.m.count_tokens(text)
+
+    def complete(self, prompt):
+        t = time.time()
+        out = self.m.complete(prompt)
+        self.k += 1
+        el = time.time() - self.t0
+        eta = el / self.k * (self.total - self.k)
+        print(f"[call {self.k}/{self.total}] {time.time() - t:5.1f}s  prompt_tokens {out[1]}  "
+              f"elapsed {el / 60:5.1f} min  eta {eta / 60:5.1f} min", file=sys.stderr, flush=True)
+        return out
 
 
 class ToolsOff(Companion):
@@ -197,7 +220,9 @@ def main():
     ca = load(os.path.expanduser(a.sv), "sv_companion_action", "tools/companion_action.py")
     if a.nim:
         from companion.llm import NimModel
-        model = NimModel(a.nim)
+        # n_predict: NimModel's default of 16 tokens cuts a quoted HPC line (about 30-40 tokens) short, so
+        # a correct quote could lose its Content. Raised before any model answer was recorded (RESULTS.md).
+        model = Progress(NimModel(a.nim, n_predict=96), 6 * len(qs))
     else:
         model = NoModel()
     tmp = tempfile.mkdtemp(prefix="c006b_")

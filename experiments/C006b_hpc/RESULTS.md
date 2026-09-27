@@ -9,6 +9,16 @@ asks for, *with or without a model*. This was not noticed at registration. The r
 edited; P1 is reported VACUOUS, and the lesson goes to the next registration: check that the safety
 prediction's guard is reachable, not only that the data is.
 
+## Harness changes before any model answer was recorded (2026-09-27)
+
+The first S25 run (`--nim google/gemma-4-31b-it`) printed nothing for 56 minutes: 56:19 elapsed, 00:00:18
+CPU, state S+. That is the process waiting on the network, not hung: NimModel times out each call at 180 s
+and gives up after 4 tries. It was stopped before finishing and nothing from it is used. Two harness
+changes followed; neither touches questions, truth, scoring or arms:
+- one progress line per model call on stderr (seconds, prompt tokens, elapsed, ETA);
+- `n_predict` 16 -> 96. At 16 tokens a quoted HPC line would be cut short. This was a harness bug in
+  `run.py`, found by reading the code during the stalled run, not from any answer.
+
 ## Output, verbatim (`output_x86_64.txt`)
 
 ```
