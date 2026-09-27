@@ -69,6 +69,7 @@ def main():
     arms = ("BASELINE", "COMPANION", "N1-NO-ESCALATION", "N2-RANDOM-DROP")
     res = {}
     for n in arms:
+        print(f"running {n} ...", file=sys.stderr, flush=True)
         t0 = time.perf_counter()
         res[n] = summarise(run_arm(n, model, lines, asks, np.random.default_rng(a.seed + 7)))
         res[n]["wall_seconds"] = time.perf_counter() - t0  # everything: companion overhead and model calls
