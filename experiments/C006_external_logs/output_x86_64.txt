@@ -1,0 +1,1 @@
+COULD NOT RUN AS REGISTERED: 0 blocks have >= 3 lines, the registration needs 20. 2000 rows, 2200 distinct blocks; (lines per block, blocks): [(1, 2194), (2, 6)]
