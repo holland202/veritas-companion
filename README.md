@@ -25,6 +25,13 @@ with a status and its evidence, and every delegation is logged, so any saving is
 | token-veritas context selection as a companion job | designed only |
 | veritas-holo state fingerprints (E003) as a companion job | designed only |
 
+<p>
+<img src="figures/token_gain.png" width="49%" alt="token saving by condition">
+<img src="figures/accuracy.png" width="49%" alt="accuracy with and without the companion">
+</p>
+
+Drawn by `scripts/make_figures.py` from the per-seed values in the results files named in the script.
+
 ## The measure
 
     efficiency gain = baseline large-model tokens / (companion cost + remaining large-model tokens)
