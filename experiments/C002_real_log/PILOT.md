@@ -74,3 +74,33 @@ eligible window until it fitted, found too few facts left, and gave up instead o
 window. It now trims each candidate by characters, then by the tokenizer, and moves on to the next
 eligible window when a trimmed one is short of facts. No change was made to the companion.
 Values are still hidden (`--keys-only`).
+
+## Logcat pilot, seeds 101-103 (2026-09-27): one ask per question, values hidden
+
+| seed | window | lines → after dedup | baseline tok | companion tok | gain | acc base / comp | lookup base / comp | conflict base / comp | N1 conflict |
+|---|---|---|---|---|---|---|---|---|---|
+| 101 | line 2337 | 55 → 55 | 27317 | 10246 | 2.67 | 0.6250 / 0.6250 | 1.0000 / 1.0000 | 0.0000 / 0.0000 | 0.0000 |
+| 102 | line 2560 | 50 → 46 | 26786 | 9409 | 2.85 | 0.5000 / 0.6250 | 0.8000 / 1.0000 | 0.0000 / 0.0000 | 0.3333 |
+| 103 | line 583 | 50 → 50 | 27352 | 10260 | 2.67 | 0.6250 / 0.7500 | 0.8000 / 1.0000 | 0.3333 / 0.3333 | 0.0000 |
+
+What this pilot shows:
+
+- **This time the three windows are really different** (lines 583, 2337 and 2560), unlike the
+  llama-server log.
+- **The gain is the lookup tier's share of the questions, almost nothing more.** 5 of 8 questions
+  were answered deterministically and 3 went to the model: 8/3 = 2.67. Exact-line dedup removed 0,
+  4 and 0 lines. On seed 102 those 4 lines moved the gain to 2.85.
+- **The companion's accuracy was equal or better on every seed** (0.6250 vs 0.6250; 0.6250 vs 0.5000;
+  0.7500 vs 0.6250). Every lookup was right with the companion (1.0000). The model alone missed one
+  lookup on two seeds (0.8000).
+- **The conflict questions are ill-posed on logcat.** A key such as `id`, `task` or `container`
+  appears on lines about unrelated things, so "the last value of `id`" is not a changed reading of
+  one quantity; it is a different entity. The model scored 0.0000-0.3333 on them either way. N1
+  "scored" 0.3333 once, by picking the first value. These questions do not measure conflict handling
+  here, and C002's registered predictions will not rest on them.
+- **N2 was empty on seeds 101 and 103 (nothing to drop), and on 102 it dropped 4 lines, with no
+  change in accuracy.**
+
+What carries over from C001 to a real log is the deterministic lookup: it answers what it can at
+no model cost, and it was never wrong. What does not carry over is deduplication (real log lines are
+almost never byte-identical) and the conflict test (real keys are not scoped to one entity).

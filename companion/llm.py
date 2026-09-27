@@ -72,3 +72,46 @@ class OracleModel:
             pick = max if "highest" in q else min
             ans = pick(vals, key=vals.get) if vals else "unknown"
         return ans, self.count_tokens(prompt), 1
+
+
+class NimModel:
+    """A large model hosted by NVIDIA (build.nvidia.com, OpenAI-style API). Token costs come from the API's own
+    usage field. The key is read from ~/.nvidia_api_key and never printed. count_tokens here is an ESTIMATE
+    (characters / 4), used only to fit windows, never reported as a cost."""
+    is_real = True
+    BASE = "https://integrate.api.nvidia.com/v1"
+
+    def __init__(self, model="meta/llama-3.3-70b-instruct", n_predict=16, retries=4):
+        import os
+        path = os.path.expanduser("~/.nvidia_api_key")
+        with open(path, encoding="utf-8") as fh:
+            self._key = fh.read().strip()
+        if not self._key.startswith("nvapi-"):
+            raise SystemExit("COULD NOT RUN: ~/.nvidia_api_key does not start with nvapi-")
+        self.model, self.n_predict, self.retries = model, n_predict, retries
+
+    def model_id(self):
+        return f"nvidia-nim:{self.model}"
+
+    def count_tokens(self, text):
+        return (len(text) + 3) // 4
+
+    def complete(self, prompt):
+        import time
+        body = {"model": self.model, "messages": [{"role": "user", "content": prompt}], "temperature": 0,
+                "max_tokens": self.n_predict, "stop": ["\n"]}
+        last = None
+        for attempt in range(self.retries):
+            req = urllib.request.Request(self.BASE + "/chat/completions", data=json.dumps(body).encode(),
+                                         headers={"Content-Type": "application/json",
+                                                  "Authorization": f"Bearer {self._key}"})
+            try:
+                with urllib.request.urlopen(req, timeout=180) as r:
+                    out = json.loads(r.read())
+                u = out.get("usage", {})
+                text = (out["choices"][0]["message"].get("content") or "").strip().split("\n")[0]
+                return text, int(u.get("prompt_tokens", 0)), int(u.get("completion_tokens", 0))
+            except Exception as exc:  # network or HTTP error: retry with backoff, never print the key
+                last = type(exc).__name__ + ": " + str(exc)[:120]
+                time.sleep(2 ** (attempt + 1))
+        raise SystemExit(f"COULD NOT RUN: NVIDIA API failed after {self.retries} attempts ({last})")

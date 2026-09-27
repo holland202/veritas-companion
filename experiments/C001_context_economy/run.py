@@ -19,7 +19,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", ".."))
 sys.path.insert(0, HERE)
 from companion import Companion  # noqa: E402
-from companion.llm import LlamaServer, OracleModel  # noqa: E402
+from companion.llm import LlamaServer, NimModel, OracleModel  # noqa: E402
 from companion.runtime import PROMPT  # noqa: E402
 from task import make_task  # noqa: E402
 
@@ -62,9 +62,10 @@ def main():
     ap.add_argument("--seed", type=int, required=True)
     ap.add_argument("--server", default="http://127.0.0.1:8080")
     ap.add_argument("--oracle", action="store_true")
+    ap.add_argument("--nim", default=None, metavar="MODEL", help="use an NVIDIA-hosted model as the large model")
     ap.add_argument("--json", default=None)
     a = ap.parse_args()
-    model = OracleModel() if a.oracle else LlamaServer(a.server)
+    model = OracleModel() if a.oracle else (NimModel(a.nim) if a.nim else LlamaServer(a.server))
     lines, asks = make_task(a.seed)
     arms = ("BASELINE", "COMPANION", "N1-NO-ESCALATION", "N2-RANDOM-DROP")
     res = {}

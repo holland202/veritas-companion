@@ -21,7 +21,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", ".."))
 from companion import Companion  # noqa: E402
 from companion.kv import parse_kv  # noqa: E402
-from companion.llm import LlamaServer, OracleModel  # noqa: E402
+from companion.llm import LlamaServer, NimModel, OracleModel  # noqa: E402
 from companion.runtime import PROMPT  # noqa: E402
 
 WINDOW, MAX_CHARS, TOKEN_LIMIT, N_LOOKUP, N_CONFLICT = 150, 200, 3500, 5, 3
@@ -106,6 +106,7 @@ def main():
     ap.add_argument("--seed", type=int, required=True)
     ap.add_argument("--server", default="http://127.0.0.1:8080")
     ap.add_argument("--oracle", action="store_true")
+    ap.add_argument("--nim", default=None, metavar="MODEL", help="use an NVIDIA-hosted model as the large model")
     ap.add_argument("--json", default=None)
     ap.add_argument("--asks", type=int, default=1, help="times each question is asked (repeats go to the cache)")
     ap.add_argument("--keys-only", action="store_true", help="print question keys without their values (for logs "
@@ -124,7 +125,7 @@ def main():
         print("single e.g.: " + ", ".join(single[:8]))
         print("changing e.g.: " + ", ".join(multi[:8]))
         return
-    model = OracleModel() if a.oracle else LlamaServer(a.server)
+    model = OracleModel() if a.oracle else (NimModel(a.nim) if a.nim else LlamaServer(a.server))
     with open(os.path.expanduser(a.log), encoding="utf-8", errors="replace") as fh:
         all_lines = fh.readlines()
     start, lines, asks = make_task(all_lines, a.seed, model, a.asks)
