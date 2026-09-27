@@ -24,7 +24,7 @@ from companion.kv import parse_kv  # noqa: E402
 from companion.llm import LlamaServer, OracleModel  # noqa: E402
 from companion.runtime import PROMPT  # noqa: E402
 
-WINDOW, MAX_CHARS, TOKEN_LIMIT, N_LOOKUP, N_CONFLICT, ASKS = 150, 200, 3500, 5, 3, 3
+WINDOW, MAX_CHARS, TOKEN_LIMIT, N_LOOKUP, N_CONFLICT = 150, 200, 3500, 5, 3
 
 
 def facts(lines):
@@ -38,7 +38,7 @@ def facts(lines):
     return by, single, multi
 
 
-def make_task(all_lines, seed, model):
+def make_task(all_lines, seed, model, asks_each=1):
     """Seeded window with enough of both question kinds, shrunk until the full window fits the model's context."""
     rng = np.random.default_rng(seed)
     lines = [ln.rstrip("\n")[:MAX_CHARS] for ln in all_lines if ln.strip()]
@@ -57,7 +57,7 @@ def make_task(all_lines, seed, model):
             raise SystemExit("COULD NOT RUN: window no longer holds enough facts once it fits the context")
     qs = [(f"What is the value of {k}?", by[k][0], "lookup") for k in rng.choice(single, N_LOOKUP, replace=False)]
     qs += [(f"What is the value of {k}?", by[k][-1], "conflict") for k in rng.choice(multi, N_CONFLICT, replace=False)]
-    asks = [q for q in qs for _ in range(ASKS)]
+    asks = [q for q in qs for _ in range(asks_each)]
     return int(s), win, [asks[i] for i in rng.permutation(len(asks))]
 
 
@@ -99,6 +99,7 @@ def main():
     ap.add_argument("--server", default="http://127.0.0.1:8080")
     ap.add_argument("--oracle", action="store_true")
     ap.add_argument("--json", default=None)
+    ap.add_argument("--asks", type=int, default=1, help="times each question is asked (repeats go to the cache)")
     ap.add_argument("--probe", action="store_true", help="only report what the log offers; no model needed")
     a = ap.parse_args()
     if a.probe:
@@ -116,7 +117,7 @@ def main():
     model = OracleModel() if a.oracle else LlamaServer(a.server)
     with open(os.path.expanduser(a.log), encoding="utf-8", errors="replace") as fh:
         all_lines = fh.readlines()
-    start, lines, asks = make_task(all_lines, a.seed, model)
+    start, lines, asks = make_task(all_lines, a.seed, model, a.asks)
     arms = ("BASELINE", "COMPANION", "N1-NO-ESCALATION", "N2-RANDOM-DROP")
     res = {}
     for n in arms:
@@ -129,6 +130,9 @@ def main():
     print(f"model: {model.model_id()}" + ("   *** ORACLE TEST DOUBLE: NOT A RESULT ***" if not model.is_real else ""))
     print(f"log: {os.path.basename(a.log)}, {len(all_lines)} lines; window at line {start}: {len(lines)} lines, "
           f"{len(Companion.dedup(lines))} after dedup; {len(asks)} questions ({len(set(q for q, *_ in asks))} unique)")
+    removed = len(lines) - len(Companion.dedup(lines))
+    print(f"asks per question {a.asks}; exact-line dedup removes {removed} of {len(lines)} window lines"
+          + ("   (N2 is VACUOUS here: nothing to drop, so it equals COMPANION by construction)" if removed == 0 else ""))
     print("questions: " + "; ".join(sorted({f'{q[21:-1]} -> {e} ({k})' for q, e, k in asks})))
     print(f"{'arm':18} {'large tok':>10} {'gain':>7} {'acc':>7} {'lookup':>7} {'conflict':>9} "
           f"{'cache':>6} {'determ':>7} {'large':>6} {'wall s':>7}")
