@@ -1,0 +1,18 @@
+OpenSSH: key Pid, 519 keys, 497 with >= 3 lines
+  last event       majority guess 0.831  shuffled same 0.266  FAIL
+  first event      majority guess 0.664  shuffled same 0.288  FAIL
+  first component  majority guess 1.000  shuffled same 1.000  FAIL
+HPC: key Node, 298 keys, 185 with >= 3 lines
+  last event       majority guess 0.400  shuffled same 0.400  PASS
+  first event      majority guess 0.227  shuffled same 0.303  PASS
+  first component  majority guess 0.454  shuffled same 0.605  FAIL
+Hadoop: key Process, 56 keys, 44 with >= 3 lines
+  last event       majority guess 0.500  shuffled same 0.636  FAIL
+  first event      majority guess 0.500  shuffled same 0.545  FAIL
+  first component  majority guess 0.545  shuffled same 0.841  FAIL
+Android: key Pid, 10 keys, 9 with >= 3 lines
+  FAIL fewer than 20 usable keys
+Zookeeper: key Node, 22 keys, 20 with >= 3 lines
+  last event       majority guess 0.150  shuffled same 0.650  FAIL
+  first event      majority guess 0.150  shuffled same 0.650  FAIL
+  first component  majority guess 0.150  shuffled same 0.600  FAIL
