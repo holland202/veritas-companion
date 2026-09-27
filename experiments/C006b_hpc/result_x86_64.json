@@ -1,0 +1,161 @@
+{
+ "model": "no-model",
+ "summary": {
+  "A0 model alone": {
+   "acc": {
+    "count": [
+     0,
+     20
+    ],
+    "first": [
+     0,
+     20
+    ],
+    "last": [
+     0,
+     20
+    ]
+   },
+   "allowed": 0,
+   "false_allow": 0,
+   "n": 60,
+   "statuses": {
+    "MODEL": 60
+   },
+   "supported": 0
+  },
+  "A1 companion": {
+   "acc": {
+    "count": [
+     0,
+     20
+    ],
+    "first": [
+     0,
+     20
+    ],
+    "last": [
+     0,
+     20
+    ]
+   },
+   "allowed": 0,
+   "false_allow": 0,
+   "n": 60,
+   "statuses": {
+    "ESCALATE": 60
+   },
+   "supported": 0
+  },
+  "A2 no conflict check": {
+   "acc": {
+    "count": [
+     0,
+     20
+    ],
+    "first": [
+     0,
+     20
+    ],
+    "last": [
+     0,
+     20
+    ]
+   },
+   "allowed": 0,
+   "false_allow": 0,
+   "n": 60,
+   "statuses": {
+    "ESCALATE": 60
+   },
+   "supported": 0
+  },
+  "A3 tools off": {
+   "acc": {
+    "count": [
+     0,
+     20
+    ],
+    "first": [
+     0,
+     20
+    ],
+    "last": [
+     0,
+     20
+    ]
+   },
+   "allowed": 0,
+   "false_allow": 0,
+   "n": 60,
+   "statuses": {
+    "ESCALATE": 60
+   },
+   "supported": 0
+  },
+  "A4 random drop": {
+   "acc": {
+    "count": [
+     0,
+     20
+    ],
+    "first": [
+     0,
+     20
+    ],
+    "last": [
+     0,
+     20
+    ]
+   },
+   "allowed": 0,
+   "false_allow": 0,
+   "n": 60,
+   "statuses": {
+    "ESCALATE": 60
+   },
+   "supported": 0
+  },
+  "A5 shuffled": {
+   "acc": {
+    "count": [
+     0,
+     20
+    ],
+    "first": [
+     0,
+     20
+    ],
+    "last": [
+     0,
+     20
+    ]
+   },
+   "allowed": 0,
+   "false_allow": 0,
+   "n": 60,
+   "statuses": {
+    "ESCALATE": 60
+   },
+   "supported": 0
+  }
+ },
+ "verdicts": {
+  "P1": [
+   "VACUOUS",
+   "A1 ALLOWed 0, wrong 0 (vacuity guard: fewer than 5 ALLOWed)"
+  ],
+  "P2": [
+   "HELD",
+   "tier-0 SUPPORTED 0/60 (registered: < 30%)"
+  ],
+  "P3": [
+   "NOT RUN",
+   "needs a model"
+  ],
+  "P4": [
+   "NOT RUN",
+   "needs a model"
+  ]
+ }
+}

@@ -2,4 +2,4 @@ __pycache__/
 *.pyc
 .pytest_cache/
 *.jsonl
-data/loghub_hdfs/
+data/loghub_*/

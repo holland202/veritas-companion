@@ -1,0 +1,12 @@
+VERITAS-COMPANION C006b | Loghub HPC 2k | x86_64 | Python 3.11.15
+2000 log lines, dedup keeps 1999; 185 nodes with >= 3 lines; 60 questions (seed 6); model: no-model (NOT A RESULT: model answers NOT RUN)
+  A0 model alone         statuses {'MODEL': 60}  ALLOW 0 (wrong 0)  correct: last 0/20  first 0/20  count 0/20
+  A1 companion           statuses {'ESCALATE': 60}  ALLOW 0 (wrong 0)  correct: last 0/20  first 0/20  count 0/20
+  A2 no conflict check   statuses {'ESCALATE': 60}  ALLOW 0 (wrong 0)  correct: last 0/20  first 0/20  count 0/20
+  A3 tools off           statuses {'ESCALATE': 60}  ALLOW 0 (wrong 0)  correct: last 0/20  first 0/20  count 0/20
+  A4 random drop         statuses {'ESCALATE': 60}  ALLOW 0 (wrong 0)  correct: last 0/20  first 0/20  count 0/20
+  A5 shuffled            statuses {'ESCALATE': 60}  ALLOW 0 (wrong 0)  correct: last 0/20  first 0/20  count 0/20
+VACUOUS   P1  A1 ALLOWed 0, wrong 0 (vacuity guard: fewer than 5 ALLOWed)
+HELD      P2  tier-0 SUPPORTED 0/60 (registered: < 30%)
+NOT RUN   P3  needs a model
+NOT RUN   P4  needs a model
