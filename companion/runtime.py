@@ -7,6 +7,7 @@ import time
 from dataclasses import asdict, dataclass, field
 
 from .fingerprint import fingerprint, normalize
+from .kv import norm_key, parse_kv
 
 PROMPT = ("Context:\n{context}\n\nAnswer with the value only. If a value was updated, give the latest value.\n"
           "Question: {question}\nAnswer:")
@@ -37,6 +38,7 @@ class Delegation:
 
 class Companion:
     LOOKUP = re.compile(r"^What is the (pressure|temperature|status) of (P\d+)\?$")
+    KV_LOOKUP = re.compile(r"^What is the value of (.+)\?$")
 
     def __init__(self, model, escalate_on_conflict=True, dedup=True, log_path=None):
         self.model, self.escalate_on_conflict, self.dedup_on = model, escalate_on_conflict, dedup
@@ -59,12 +61,21 @@ class Companion:
         pat = re.compile(rf"^(?:UPDATE )?{re.escape(asset)} {fld} (\S+)")
         return [(m.group(1), ln) for ln in lines if (m := pat.match(ln.strip()))]
 
+    @staticmethod
+    def extract_kv(lines, key):
+        want = norm_key(key)
+        return [(kv[1], ln) for ln in lines if (kv := parse_kv(ln)) and kv[0] == want]
+
     def cheap_answer(self, lines, question):
         m = self.LOOKUP.match(question.strip())
-        if not m:
+        k = self.KV_LOOKUP.match(question.strip())
+        if m:
+            fld, asset = m.groups()
+            found = self.extract(lines, asset, fld)
+        elif k:
+            found = self.extract_kv(lines, k.group(1))
+        else:
             return Result("ESCALATE")
-        fld, asset = m.groups()
-        found = self.extract(lines, asset, fld)
         values = list(dict.fromkeys(v for v, _ in found))
         if len(values) == 1:
             return Result("SUPPORTED", values[0], [ln for _, ln in found][:3])
@@ -92,7 +103,7 @@ class Companion:
         return rec
 
     def _record(self, task_id, question, t0, to, pt, ct, r, final):
-        rec = Delegation(task_id, "lookup" if self.LOOKUP.match(question) else "open", to,
+        rec = Delegation(task_id, "lookup" if (self.LOOKUP.match(question) or self.KV_LOOKUP.match(question)) else "open", to,
                          time.perf_counter() - t0, pt, ct, str(r.value), r.status, to == "large_model", str(final))
         self.log.append(rec)
         if self.log_path:

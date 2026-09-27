@@ -54,6 +54,15 @@ class OracleModel:
             m = re.match(r"^(?:UPDATE )?(P\d+) (pressure|temperature|status) (\S+)", line.strip())
             if m:
                 latest[(m.group(1), m.group(2))] = m.group(3)
+        kvq = re.match(r"What is the value of (.+)\?$", q)
+        if kvq:
+            from .kv import norm_key, parse_kv
+            last = None
+            for line in ctx.splitlines():
+                kv = parse_kv(line)
+                if kv and kv[0] == norm_key(kvq.group(1)):
+                    last = kv[1]
+            return (last or "unknown"), self.count_tokens(prompt), 1
         m = re.match(r"What is the (\w+) of (P\d+)\?", q)
         if m:
             ans = latest.get((m.group(2), m.group(1)), "unknown")

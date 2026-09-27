@@ -48,3 +48,14 @@ def test_task_is_deterministic_and_has_ground_truth_for_every_ask():
     lines, asks = a
     assert len(asks) == 30 and all(exp for _, exp, _ in asks)
     assert any(ln.startswith("UPDATE") for ln in lines)
+
+
+def test_kv_reader_and_kv_lookup():
+    from companion.kv import parse_kv
+    assert parse_kv("llama_context: n_ctx         = 4096") == ("n_ctx", "4096")
+    assert parse_kv("slot get_availabl: id  0 | task -1 | n_past = 2331") == ("n_past", "2331")
+    assert parse_kv("srv  log_server_r: request: POST /completion 127.0.0.1 200") is None
+    lines = ["a: n_ctx = 4096", "a: n_ctx = 4096", "b: n_past = 1", "b: n_past = 2"]
+    c = Companion(OracleModel())
+    assert c.cheap_answer(lines, "What is the value of n_ctx?").value == "4096"
+    assert c.cheap_answer(lines, "What is the value of n_past?").status == "UNCERTAIN"
