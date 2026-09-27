@@ -59,7 +59,26 @@ def main():
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--jsonl", default=None)
     ap.add_argument("--oracle", action="store_true")
+    ap.add_argument("--serving-probe", default=None, metavar="OUT",
+                    help="only send the one-question probe to every listed model and write the ones that answer "
+                         "correctly to OUT (no scoring); C004b freezes its model list from this file")
     a = ap.parse_args()
+    if a.serving_probe:
+        good = []
+        for name in load_models(a.models):
+            try:
+                text, _, _ = NimModel(name).complete(PROMPT.format(context=PROBE_CTX, question=PROBE_Q))
+                status = "SERVES+ANSWERS" if c001.correct(text, PROBE_A) else f"SERVES, NO USABLE ANSWER ({text[:30]!r})"
+            except SystemExit as exc:
+                status = "NOT SERVED: " + str(exc)[-60:]
+            print(f"{name:46} {status}", flush=True)
+            if status == "SERVES+ANSWERS":
+                good.append(name)
+        with open(a.serving_probe, "w", encoding="utf-8") as fh:
+            fh.write("# models that answered the probe on " + __import__("time").strftime("%Y-%m-%d") + "\n")
+            fh.write("\n".join(good) + "\n")
+        print(f"{len(good)} models serve and answer; written to {a.serving_probe}")
+        return
     names = ["oracle-test-double"] if a.oracle else load_models(a.models)
     print(f"VERITAS-COMPANION C004 | seed {a.seed} | {len(names)} models | {platform.machine()} | "
           f"Python {platform.python_version()}" + ("   *** ORACLE: NOT A RESULT ***" if a.oracle else ""))
