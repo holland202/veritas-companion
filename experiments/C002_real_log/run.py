@@ -100,6 +100,8 @@ def main():
     ap.add_argument("--oracle", action="store_true")
     ap.add_argument("--json", default=None)
     ap.add_argument("--asks", type=int, default=1, help="times each question is asked (repeats go to the cache)")
+    ap.add_argument("--keys-only", action="store_true", help="print question keys without their values (for logs "
+                    "that may hold personal data, such as logcat)")
     ap.add_argument("--probe", action="store_true", help="only report what the log offers; no model needed")
     a = ap.parse_args()
     if a.probe:
@@ -133,7 +135,8 @@ def main():
     removed = len(lines) - len(Companion.dedup(lines))
     print(f"asks per question {a.asks}; exact-line dedup removes {removed} of {len(lines)} window lines"
           + ("   (N2 is VACUOUS here: nothing to drop, so it equals COMPANION by construction)" if removed == 0 else ""))
-    print("questions: " + "; ".join(sorted({f'{q[21:-1]} -> {e} ({k})' for q, e, k in asks})))
+    print("questions: " + "; ".join(sorted({(f'{q[21:-1]} ({k})' if a.keys_only else f'{q[21:-1]} -> {e} ({k})')
+                                            for q, e, k in asks})))
     print(f"{'arm':18} {'large tok':>10} {'gain':>7} {'acc':>7} {'lookup':>7} {'conflict':>9} "
           f"{'cache':>6} {'determ':>7} {'large':>6} {'wall s':>7}")
     for n in arms:
