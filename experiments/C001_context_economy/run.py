@@ -11,6 +11,7 @@ import os
 import platform
 import re
 import sys
+import time
 
 import numpy as np
 
@@ -66,20 +67,24 @@ def main():
     model = OracleModel() if a.oracle else LlamaServer(a.server)
     lines, asks = make_task(a.seed)
     arms = ("BASELINE", "COMPANION", "N1-NO-ESCALATION", "N2-RANDOM-DROP")
-    res = {n: summarise(run_arm(n, model, lines, asks, np.random.default_rng(a.seed + 7))) for n in arms}
+    res = {}
+    for n in arms:
+        t0 = time.perf_counter()
+        res[n] = summarise(run_arm(n, model, lines, asks, np.random.default_rng(a.seed + 7)))
+        res[n]["wall_seconds"] = time.perf_counter() - t0  # everything: companion overhead and model calls
     base = res["BASELINE"]["large_tokens"]
     print(f"VERITAS-COMPANION C001 | seed {a.seed} | {platform.machine()} | Python {platform.python_version()}")
     print(f"model: {model.model_id()}" + ("   *** ORACLE TEST DOUBLE: NOT A RESULT ***" if not model.is_real else ""))
     print(f"log: {len(lines)} lines, {len(Companion.dedup(lines))} after dedup; {len(asks)} questions "
           f"({len(set(q for q, *_ in asks))} unique)")
     print(f"{'arm':18} {'large tok':>10} {'gain':>7} {'acc':>7} {'lookup':>7} {'conflict':>9} {'aggr':>6} "
-          f"{'cache':>6} {'determ':>7} {'large':>6}")
+          f"{'cache':>6} {'determ':>7} {'large':>6} {'wall s':>7}")
     for n in arms:
         r = res[n]
         gain = base / r["large_tokens"] if r["large_tokens"] else float("inf")
         print(f"{n:18} {r['large_tokens']:10d} {gain:7.2f} {r['accuracy']:7.4f} {r['by_kind']['lookup']:7.4f} "
               f"{r['by_kind']['conflict']:9.4f} {r['by_kind']['aggregate']:6.4f} {r['tiers']['cache']:6d} "
-              f"{r['tiers']['deterministic']:7d} {r['tiers']['large_model']:6d}")
+              f"{r['tiers']['deterministic']:7d} {r['tiers']['large_model']:6d} {r['wall_seconds']:7.1f}")
     if a.json:
         with open(a.json, "w", encoding="utf-8") as fh:
             json.dump({"experiment": "C001", "seed": a.seed, "model": model.model_id(), "real_model": model.is_real,

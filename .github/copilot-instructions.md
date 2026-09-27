@@ -15,5 +15,8 @@ This is an evidence-first research repo. The same rules bind every contributor, 
   results.
 - Keep the code standard library plus NumPy; it must run in Termux on Android (aarch64). `/tmp` may
   not be writable there.
+- **Protected paths.** Do not modify `experiments/*/PREREG.md`, `experiments/*/RESULTS.md`, `claims/`,
+  or anything under `results/`, except for a mechanical correction the operator asked for in the issue.
+  Those files are the record; a pull request that touches them otherwise should be rejected.
 - Ask in the pull request before renumbering experiments, deleting files or changing a claim's status.
 - Credit AI contributors by model name in commit messages or result files.
