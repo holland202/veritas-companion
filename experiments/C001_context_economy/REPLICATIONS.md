@@ -67,3 +67,25 @@ do not depend on the hardware. The GPU baseline was also far faster: 72.2 s in t
 All three seeds stopped at the first call with `HTTP Error 410: Gone`: NVIDIA no longer serves
 `meta/llama-3.3-70b-instruct`. No result exists. Replacing the model is an amendment to this
 registration and will be written here, with the new model named, before any run.
+
+## R-NIM (amended to `nvidia/llama-3.1-nemotron-70b-instruct`): could not run (2026-09-27)
+
+All three seeds returned HTTP 404 on the first call. The amended model is listed for the key but not
+served to it. No result. See C004's results for the same problem across 26 listed models.
+`google/gemma-4-31b-it` did serve and ran C001 seed 1 inside C004 (gain 13.50, accuracy 0.9000 on both
+arms). Any further R-NIM model will be named in an amendment before its run, and chosen only from
+models that pass a serving check first.
+
+## R-PHI: did not run (2026-09-27); the runs made were Qwen again
+
+The Phi-3-mini server exited at once (`Exit 1`). The Adreno server, which runs the `llama-server`
+binary under a wrapper, was still holding port 8080: `pkill -f llama-server-adreno` matched the
+wrapper's name, not the running binary. The three runs therefore went to the still-running Qwen
+server. The runner's `model:` line printed `qwen2.5-1.5b-instruct-q4_k_m.gguf`, and that is how the
+mix-up was caught. Those runs are not R-PHI. They repeat the Qwen results (seeds 2 and 3 exactly as
+in R-ADRENO; seed 1 with 44336 baseline tokens instead of 44328) and add no new claim. R-PHI remains
+registered and unrun.
+
+Before a local-model run, the runner should refuse if the server reports a different model file than
+the one intended, as sovereign-veritas' `model_action.py` already does (`--model-file`). That guard is
+to be added here.

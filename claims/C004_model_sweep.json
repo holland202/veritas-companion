@@ -1,0 +1,14 @@
+{
+ "id": "C004",
+ "status": "REFUTED",
+ "claim": "The companion's C001 behaviour holds across the text models the operator's NVIDIA key lists (S0: at least 10 qualify and complete).",
+ "experiment": "C004",
+ "predictions": [
+  "S0",
+  "S1",
+  "S2",
+  "S3"
+ ],
+ "evidence": "experiments/C004_model_sweep/RESULTS.md",
+ "limits": "S0 failed: 1 of 37 listed models ran; 26 listed models returned 404, 8 did not qualify (reasoning output). The sweep could not be carried out; the design error (list registered without a serving check) is recorded. S1-S3 not assessable."
+}
