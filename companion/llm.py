@@ -109,8 +109,9 @@ class NimModel:
         import time
         body = {"model": self.model, "messages": [{"role": "user", "content": prompt}], "temperature": 0,
                 "max_tokens": self.n_predict, "stop": ["\n"]}
-        last = None
+        last, tries = None, 0
         for attempt in range(self.retries):
+            tries += 1
             req = urllib.request.Request(self.BASE + "/chat/completions", data=json.dumps(body).encode(),
                                          headers={"Content-Type": "application/json",
                                                   "Authorization": f"Bearer {self._key}"})
@@ -125,4 +126,6 @@ class NimModel:
                 if "410" in last or "404" in last:
                     break  # the model is gone or unknown: retrying cannot help
                 time.sleep((15 if "429" in last else 2) * 2 ** attempt)
-        raise SystemExit(f"COULD NOT RUN: NVIDIA API failed after {self.retries} attempts ({last})")
+        hint = " - the model is retired or unknown; list the ones that answer with C004's --serving-probe" if (
+            "410" in str(last) or "404" in str(last)) else ""
+        raise SystemExit(f"COULD NOT RUN: NVIDIA API failed after {tries} attempt(s) ({last}){hint}")

@@ -21,3 +21,17 @@ VERDICT  3 of 3 held
   shows the pieces fit together and the traps bite. It does not show routing on someone else's log.
 
 ## With a model (M1): pending, seeds 1-3 on the S25
+
+## Deterministic part on the S25 (aarch64, Python 3.14.6, 2026-09-27), seed 1
+
+Run by the operator on the phone (the `--nim` arm stopped at the NVIDIA call: `meta/llama-3.3-70b-instruct`
+returned HTTP 410, the model is retired):
+
+```
+routing correct 16/16; answers correct when SUPPORTED 16/16; false SUPPORTED on planted conflicts 0
+null (naive first-match) wrong on L0 lookups: 2/6
+evidence each question needs still present: dedup 16/16, random drop of the same number of lines 16/16
+```
+
+Seed 1's routing, answers, trap handling and evidence counts match the container's on another CPU
+architecture and Python version.
