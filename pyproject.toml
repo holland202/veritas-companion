@@ -1,0 +1,8 @@
+[project]
+name = "veritas-companion"
+version = "0.1.0"
+description = "A cheap, evidence-logged efficiency layer beside a large model"
+requires-python = ">=3.10"
+dependencies = ["numpy"]
+authors = [{name = "Chad Edward Holland"}]
+license = {text = "MIT"}
