@@ -59,3 +59,21 @@ def test_kv_reader_and_kv_lookup():
     c = Companion(OracleModel())
     assert c.cheap_answer(lines, "What is the value of n_ctx?").value == "4096"
     assert c.cheap_answer(lines, "What is the value of n_past?").status == "UNCERTAIN"
+
+
+def test_cached_answer_keeps_its_origin(tmp_path):
+    """A CACHED record says which tier produced the answer, in memory and in the JSONL log."""
+    import json
+    from companion import Companion
+    from companion.llm import OracleModel
+    log = tmp_path / "d.jsonl"
+    c = Companion(OracleModel(), log_path=str(log))
+    lines = ["P1 pressure 40", "P1 temperature 70"]
+    c.ask("a", "What is the pressure of P1?", lines)          # deterministic
+    c.ask("b", "Summarise the log.", lines)                   # large model
+    r1 = c.ask("a2", "What is the pressure of P1?", lines)
+    r2 = c.ask("b2", "Summarise the log.", lines)
+    assert (r1.status, r1.cached_origin) == ("CACHED", "deterministic")
+    assert (r2.status, r2.cached_origin) == ("CACHED", "large_model")
+    rows = [json.loads(x) for x in log.read_text().splitlines()]
+    assert [r["cached_origin"] for r in rows] == [None, None, "deterministic", "large_model"]

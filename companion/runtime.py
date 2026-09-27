@@ -26,6 +26,7 @@ class Delegation:
     status: str
     escalated: bool
     final_result: str
+    cached_origin: str | None = None  # for a CACHED answer: the tier that produced it ("deterministic" or "large_model")
 
 
 class Companion:
@@ -86,22 +87,27 @@ class Companion:
         ctx = self.dedup(lines) if self.dedup_on else list(lines)
         key = fingerprint(question, *ctx)
         if key in self.cache:
-            return self._record(task_id, question, t0, "cache", 0, 0, Result("CACHED", self.cache[key]),
-                                self.cache[key])
+            # A cached answer keeps the provenance of the tier that produced it. Found 2026-09-27 while
+            # wiring the companion to the sovereign-veritas gate: CACHED alone could not say whether a
+            # deterministic tool or the large model had answered, so a consumer could not tell which to trust.
+            value, origin = self.cache[key]
+            return self._record(task_id, question, t0, "cache", 0, 0, Result("CACHED", value), value,
+                                cached_origin=origin)
         r = self.cheap_answer(ctx, question)
         if r.status == "SUPPORTED":
-            self.cache[key] = r.value
+            self.cache[key] = (r.value, "deterministic")
             return self._record(task_id, question, t0, "deterministic", 0, 0, r, r.value)
         t_cheap = time.perf_counter() - t0
         text, pt, ct = self.model.complete(PROMPT.format(context="\n".join(ctx), question=question))
-        self.cache[key] = text
-        rec = self._record(task_id, question, t0, "large_model", pt, ct, r, text)
-        rec.companion_seconds = t_cheap
-        return rec
+        self.cache[key] = (text, "large_model")
+        # companion_seconds is the cheap tiers' time only, set before the log line is written (it used to be
+        # set after, so the JSONL line held the total including the model call while the object held t_cheap).
+        return self._record(task_id, question, t0, "large_model", pt, ct, r, text, seconds=t_cheap)
 
-    def _record(self, task_id, question, t0, to, pt, ct, r, final):
+    def _record(self, task_id, question, t0, to, pt, ct, r, final, cached_origin=None, seconds=None):
         rec = Delegation(task_id, "lookup" if (self.LOOKUP.match(question) or self.KV_LOOKUP.match(question)) else "open", to,
-                         time.perf_counter() - t0, pt, ct, str(r.value), r.status, to == "large_model", str(final))
+                         time.perf_counter() - t0 if seconds is None else seconds, pt, ct, str(r.value), r.status,
+                         to == "large_model", str(final), cached_origin)
         self.log.append(rec)
         if self.log_path:
             with open(self.log_path, "a", encoding="utf-8") as fh:
