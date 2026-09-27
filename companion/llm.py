@@ -113,5 +113,7 @@ class NimModel:
                 return text, int(u.get("prompt_tokens", 0)), int(u.get("completion_tokens", 0))
             except Exception as exc:  # network or HTTP error: retry with backoff, never print the key
                 last = type(exc).__name__ + ": " + str(exc)[:120]
-                time.sleep(2 ** (attempt + 1))
+                if "410" in last or "404" in last:
+                    break  # the model is gone or unknown: retrying cannot help
+                time.sleep((15 if "429" in last else 2) * 2 ** attempt)
         raise SystemExit(f"COULD NOT RUN: NVIDIA API failed after {self.retries} attempts ({last})")
