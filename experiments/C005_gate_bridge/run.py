@@ -59,6 +59,7 @@ def main():
             for i, q in enumerate(qs):
                 comp.ask(f"s{seed}q{i}r{rnd}", q["q"], lines)
                 asked.append(q)
+        print(f"seed {seed}: answered", flush=True)
         recs = [json.loads(x) for x in open(log, encoding="utf-8")]
         assert len(recs) == len(asked)
         for n, (rec, q) in enumerate(zip(recs, asked), 1):
