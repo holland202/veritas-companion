@@ -44,6 +44,24 @@ R3 dedup hides a conflict      log ['token = Ab12', 'token = aB12']: status UNCE
 model calls 2; wrong answers the check would PASS: 0
 ```
 
+## Confirmed on the S25 after the fix (2026-09-27, aarch64, after `git pull` to c4d7f62), verbatim
+
+```
+======================================================================
+FINAL
+cases: 450
+true cache candidates: 0
+exceptions (expected escalations): 162
+======================================================================
+NO TRUE CACHE-POISONING / FINGERPRINT COLLISION FOUND.
+```
+
+Before the fix, the same script found 20 candidates and 150 escalations. The 12 extra escalations fit the
+fix: inputs that used to get a cached answer now go to the model.
+
+The script is not in this repository, so this confirms the fix on the device only. `repro.py` is the
+check that anyone can re-run.
+
 ## Tests
 
 - `test_fingerprint_normalises_only_case_and_space` **asserted the collision** that this attack exploited.
