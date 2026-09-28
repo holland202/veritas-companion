@@ -27,6 +27,9 @@ class Delegation:
     escalated: bool
     final_result: str
     cached_origin: str | None = None  # for a CACHED answer: the tier that produced it ("deterministic" or "large_model")
+    # fingerprint() of the exact question and context lines the answer was computed from (C007). A consumer
+    # holding the lines can recompute it; a cached answer carries the key of the context it was looked up for.
+    context_sha256: str | None = None
 
 
 class Companion:
@@ -87,6 +90,7 @@ class Companion:
         t0 = time.perf_counter()
         ctx = self.dedup(lines) if self.dedup_on else list(lines)
         key = fingerprint(question, *ctx)
+        self._key = key
         if key in self.cache:
             # A cached answer keeps the provenance of the tier that produced it. Found 2026-09-27 while
             # wiring the companion to the sovereign-veritas gate: CACHED alone could not say whether a
@@ -108,7 +112,7 @@ class Companion:
     def _record(self, task_id, question, t0, to, pt, ct, r, final, cached_origin=None, seconds=None):
         rec = Delegation(task_id, "lookup" if (self.LOOKUP.match(question) or self.KV_LOOKUP.match(question)) else "open", to,
                          time.perf_counter() - t0 if seconds is None else seconds, pt, ct, str(r.value), r.status,
-                         to == "large_model", str(final), cached_origin)
+                         to == "large_model", str(final), cached_origin, getattr(self, "_key", None))
         self.log.append(rec)
         if self.log_path:
             with open(self.log_path, "a", encoding="utf-8") as fh:

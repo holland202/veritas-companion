@@ -94,3 +94,14 @@ def test_cached_answer_keeps_its_origin(tmp_path):
     assert (r2.status, r2.cached_origin) == ("CACHED", "large_model")
     rows = [json.loads(x) for x in log.read_text().splitlines()]
     assert [r["cached_origin"] for r in rows] == [None, None, "deterministic", "large_model"]
+
+
+def test_record_carries_exact_context_digest():
+    from companion import fingerprint
+    c = Companion(OracleModel())
+    lines = ["P01 pressure 40"]
+    r1 = c.ask("a", "What is the pressure of P01?", lines)
+    r2 = c.ask("b", "What is the pressure of P01?", lines)  # cache hit
+    want = fingerprint("What is the pressure of P01?", *lines)
+    assert r1.context_sha256 == want and r2.context_sha256 == want and r2.status == "CACHED"
+    assert c.ask("c", "What is the pressure of P01?", ["P01 pressure 40 "]).context_sha256 != want
