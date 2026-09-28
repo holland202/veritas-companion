@@ -12,6 +12,8 @@ lines, never the truth.
 import argparse, csv, hashlib, importlib.util, json, os, platform, re, sys, tempfile, time
 from collections import Counter, defaultdict
 
+from fractions import Fraction
+
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -160,14 +162,16 @@ def summarize(rows):
 
 
 def rate(s, kinds):
-    return sum(s["acc"][k][0] for k in kinds) / sum(s["acc"][k][1] for k in kinds)
+    # Exact fractions. Found 2026-09-27 on the first S25 result: in floats 8/20 - 7/20 = 0.050000000000000044,
+    # so a count change of exactly the registered 0.05 printed FAILED. The registered bound is "no more than 0.05".
+    return Fraction(sum(s["acc"][k][0] for k in kinds), sum(s["acc"][k][1] for k in kinds))
 
 
 def p3(a1, a5):
     drop = rate(a1, ORDER) - rate(a5, ORDER)
     dc = abs(rate(a1, ["count"]) - rate(a5, ["count"]))
-    return ("HELD" if drop >= 0.25 and dc <= 0.05 else "FAILED",
-            f"order accuracy fell {drop:+.3f} (need >= 0.25), count changed {dc:.3f} (need <= 0.05)")
+    return ("HELD" if drop >= Fraction(1, 4) and dc <= Fraction(1, 20) else "FAILED",
+            f"order accuracy fell {float(drop):+.3f} (need >= 0.25), count changed {float(dc):.3f} (need <= 0.05)")
 
 
 def arms(lines, qs, model, ca, tmp):
@@ -193,8 +197,8 @@ def selftest(lines, qs):
     a1 = S["A1 companion"]
     ok_reader = rate(a1, ORDER) == 1.0 and rate(a1, ["count"]) == 1.0
     verdict = p3(a1, S["A5 shuffled"])
-    print(f"self-test: oracle reader A1 order {rate(a1, ORDER):.3f} count {rate(a1, ['count']):.3f}; "
-          f"empty answers scored correct {wrong}/{len(qs)}; A5 order {rate(S['A5 shuffled'], ORDER):.3f}; P3 on oracle {verdict[0]}")
+    print(f"self-test: oracle reader A1 order {float(rate(a1, ORDER)):.3f} count {float(rate(a1, ['count'])):.3f}; "
+          f"empty answers scored correct {wrong}/{len(qs)}; A5 order {float(rate(S['A5 shuffled'], ORDER)):.3f}; P3 on oracle {verdict[0]}")
     ok = ok_reader and wrong == 0 and verdict[0] == "HELD"
     print(f"self-test {'PASS' if ok else 'FAIL'}")
     return ok
@@ -242,7 +246,7 @@ def main():
     if a.nim:
         v["P3"] = p3(a1, S["A5 shuffled"])
         diff = rate(a1, ["last", "first", "count"]) - rate(S["A0 model alone"], ["last", "first", "count"])
-        v["P4"] = ("HELD" if diff >= -1 / 60 else "FAILED", f"A1 minus A0 accuracy {diff:+.3f} (need >= -0.017)")
+        v["P4"] = ("HELD" if diff >= Fraction(-1, 60) else "FAILED", f"A1 minus A0 accuracy {float(diff):+.3f} (need >= -0.017)")
     else:
         v["P3"] = ("NOT RUN", "needs a model")
         v["P4"] = ("NOT RUN", "needs a model")

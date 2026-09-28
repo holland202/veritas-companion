@@ -1,6 +1,72 @@
-# C006b results: deterministic part (x86_64). Model arms NOT RUN yet
+# C006b results: model run on the S25 (Gemma 4 31B via NVIDIA NIM), 2026-09-27
 
 ## What broke, first
+
+1. **The run printed P3 FAILED; by the registered rule it held.** The registration says Q-count may
+   change by "no more than 0.05". A1 got 8/20 and A5 7/20, a change of exactly 1/20 = 0.05. In floating
+   point `8/20 - 7/20` is `0.050000000000000044`, which `run.py` compared as greater than 0.05. The
+   verbatim output keeps `FAILED`. `run.py` now uses exact fractions; re-evaluated on the printed counts:
+   `('HELD', 'order accuracy fell +0.450 (need >= 0.25), count changed 0.050 (need <= 0.05)')`.
+   The self-test and the x86_64 deterministic output are unchanged by the fix.
+2. **The count clause of P3 and all of P4 sit inside this run's own noise.** A1, A2 and A3 send the
+   model identical prompts (no tool ever answers, so the three arms differ only in code paths that were
+   never reached) at temperature 0. They still scored last 14/15/13, first 12/12/11, count 8/7/8. The
+   hosted model is not deterministic; the same-prompt spread is up to 2/20 = 0.10 per question type.
+   So "count changed 0.050" (the P3 clause) and "A1 minus A0 +0.033" (P4) cannot be told apart from
+   repeat noise. They are reported as held **by the registered rule**, and that is all they mean.
+3. **P1 remains VACUOUS by construction** (0 ALLOWs; the gate DEFERs every model answer; see below).
+
+What does stand: **the shuffle control works on a real model.** Order accuracy on the true log was
+26-27/40 for A1-A2 (24/40 for A3); on the shuffled log it was 8/40 (first line 1/20). A fall of 0.450
+against a same-prompt spread of 0.075 on the order questions. The instrument can see order.
+
+## S25 output, verbatim (`output_aarch64_s25.txt`, SHA-256 `c3fa8dc39e48366baf0b9103d33938b1f51e37b3d5b939f8202988552ae63420`)
+
+```
+VERITAS-COMPANION C006b | Loghub HPC 2k | aarch64 | Python 3.14.6
+2000 log lines, dedup keeps 1999; 185 nodes with >= 3 lines; 60 questions (seed 6); model: nvidia-nim:google/gemma-4-31b-it
+  A0 model alone         statuses {'MODEL': 60}  ALLOW 0 (wrong 0)  correct: last 13/20  first 12/20  count 7/20
+  A1 companion           statuses {'ESCALATE': 60}  ALLOW 0 (wrong 0)  correct: last 14/20  first 12/20  count 8/20
+  A2 no conflict check   statuses {'ESCALATE': 60}  ALLOW 0 (wrong 0)  correct: last 15/20  first 12/20  count 7/20
+  A3 tools off           statuses {'ESCALATE': 60}  ALLOW 0 (wrong 0)  correct: last 13/20  first 11/20  count 8/20
+  A4 random drop         statuses {'ESCALATE': 60}  ALLOW 0 (wrong 0)  correct: last 12/20  first 10/20  count 6/20
+  A5 shuffled            statuses {'ESCALATE': 60}  ALLOW 0 (wrong 0)  correct: last 7/20  first 1/20  count 7/20
+VACUOUS   P1  A1 ALLOWed 0, wrong 0 (vacuity guard: fewer than 5 ALLOWed)
+HELD      P2  tier-0 SUPPORTED 0/60 (registered: < 30%)
+FAILED    P3  order accuracy fell +0.450 (need >= 0.25), count changed 0.050 (need <= 0.05)
+HELD      P4  A1 minus A0 accuracy +0.033 (need >= -0.017)
+```
+
+360 calls, 116.4 min, 25,384,506 prompt tokens (sum of the API's own counts in the progress lines).
+
+## Verdicts
+
+| | printed | by the registered rule | what it means |
+|---|---|---|---|
+| P1 | VACUOUS | VACUOUS | untestable: the gate never ALLOWs a model answer |
+| P2 | HELD | HELD | tier-0 tools answered 0/60; everything escalated, as predicted |
+| P3 | FAILED | **HELD** (float bug, above) | order clause strongly held (0.450); count clause held at exactly the bound, within noise |
+| P4 | HELD | HELD | +0.033 is inside the 0.10 same-prompt spread; no difference shown |
+
+Other numbers worth keeping: the model counts badly (Q-count 6-8/20 in every arm, including the true
+log; 71 lines mention a second node, the registered trap). A4 dropped 1 line (dedup removes only 1 of
+2,000), so A4 is not a test of dedup on this log.
+
+## Lessons for the next registration
+
+- Compare against bounds in exact arithmetic.
+- Measure same-prompt repeat noise *first* (or register A1 twice) and state every bound as larger than it.
+- Check that the safety prediction's vacuity guard is reachable under the gate's policy.
+
+## Unrun, left open
+
+P5 (full HDFS log), the mutation corpus, and a repeat of A1 ×5 to measure the noise floor directly.
+
+---
+
+# Before the model run
+
+### P1 unreachable
 
 **P1 cannot be tested here, by construction.** The sovereign-veritas bridge ALLOWs only tier-0 tool
 answers; large-model answers are DEFERred by policy (`tools/companion_action.py`, docstring lines 9-10).
@@ -50,7 +116,7 @@ An oracle that reads whatever log it is given scores 1.000 on the true log; on t
 order accuracy drops to 0.250 while its count stays exact, so P3 *can* hold and *can* fail. Empty
 answers score 0/60.
 
-## Verdicts so far
+## Verdicts before the model run (x86_64, superseded above)
 
 | | verdict | |
 |---|---|---|
@@ -61,6 +127,6 @@ answers score 0/60.
 
 ## Cost note for the model run
 
-The log is 151,178 bytes, roughly 40k tokens per call; 6 arms × 60 questions = 360 calls. A1, A2 and A3
+The log is 151,178 bytes, estimated at roughly 40k tokens per call (wrong: the API counted 70,484-70,541); 6 arms × 60 questions = 360 calls. A1, A2 and A3
 send identical prompts here (no tool ever answers), so they will agree unless the model is
 nondeterministic, which is itself worth seeing.
