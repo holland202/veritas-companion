@@ -1,0 +1,5 @@
+R1 case-sensitive value        second log ['token = aB12']: status SUPPORTED, answer 'aB12', right 'aB12', check PASS
+R1 NaN vs nan (the S25 case)   second log ['P1 temperature nan']: status SUPPORTED, answer 'nan', right 'nan', check PASS
+R2 no match, still answered    second log ['P1  temperature  nan']: status ESCALATE, answer '', right None, check INSUFFICIENT_EVIDENCE
+R3 dedup hides a conflict      log ['token = Ab12', 'token = aB12']: status UNCERTAIN, answer '', right: a conflict (UNCERTAIN), check INSUFFICIENT_EVIDENCE
+model calls 2; wrong answers the check would PASS: 0

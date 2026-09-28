@@ -11,14 +11,31 @@ LINES = ["P01 pressure 40", "P01 pressure 40", "p01  pressure 40", "P02 status R
          "P02 pressure 25"]
 
 
-def test_fingerprint_normalises_only_case_and_space():
-    assert fingerprint("P01 pressure 40") == fingerprint(" p01   PRESSURE 40 ")
+def test_fingerprint_is_exact():
+    # Was test_fingerprint_normalises_only_case_and_space, which asserted the collision C007 exploited.
+    assert fingerprint("P01 pressure 40") != fingerprint(" p01   PRESSURE 40 ")
+    assert fingerprint("token = Ab12") != fingerprint("token = aB12")
     assert fingerprint("P01 pressure 40") != fingerprint("P01 pressure 41")
+    assert fingerprint("ab", "c") != fingerprint("a", "bc")  # part boundaries count
+
+
+def test_c007_no_wrong_answer_from_cache_or_dedup():
+    class Null:
+        def model_id(self): return "null"
+        def count_tokens(self, t): return 0
+        def complete(self, p): return "", 0, 0
+    c = Companion(Null())
+    c.ask("a", "What is the value of token?", ["token = Ab12"])
+    assert c.ask("b", "What is the value of token?", ["token = aB12"]).final_result == "aB12"
+    c.ask("c", "What is the temperature of P1?", ["P1 temperature NaN"])
+    assert c.ask("d", "What is the temperature of P1?", ["P1  temperature  nan"]).status not in ("SUPPORTED", "CACHED")
+    assert c.ask("e", "What is the value of token?", ["token = Ab12", "token = aB12"]).status == "UNCERTAIN"
 
 
 def test_dedup_keeps_first_and_order():
-    assert Companion.dedup(LINES) == ["P01 pressure 40", "P02 status RUNNING", "UPDATE P02 pressure 30",
-                                      "P02 pressure 25"]
+    # Exact duplicates only since C007: "p01  pressure 40" differs in case and spacing, so it stays.
+    assert Companion.dedup(LINES) == ["P01 pressure 40", "p01  pressure 40", "P02 status RUNNING",
+                                      "UPDATE P02 pressure 30", "P02 pressure 25"]
 
 
 def test_conflict_is_uncertain_not_answered():

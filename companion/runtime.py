@@ -6,7 +6,7 @@ import re
 import time
 from dataclasses import asdict, dataclass, field
 
-from .fingerprint import fingerprint, normalize
+from .fingerprint import fingerprint
 from .kv import norm_key, parse_kv
 from .runtime_types import Result  # noqa: F401  (re-exported)
 
@@ -40,9 +40,10 @@ class Companion:
     # tier 0: deterministic tools -------------------------------------------------------------------------
     @staticmethod
     def dedup(lines):
+        # Exact lines only. Normalised dedup dropped "token = aB12" after "token = Ab12" and hid the conflict (C007).
         seen, kept = set(), []
         for ln in lines:
-            k = normalize(ln)
+            k = ln
             if k not in seen:
                 seen.add(k)
                 kept.append(ln)

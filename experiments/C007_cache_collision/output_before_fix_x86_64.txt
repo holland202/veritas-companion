@@ -1,0 +1,5 @@
+R1 case-sensitive value        second log ['token = aB12']: status CACHED, answer 'Ab12', right 'aB12', check PASS  <- WRONG ANSWER RELEASED
+R1 NaN vs nan (the S25 case)   second log ['P1 temperature nan']: status CACHED, answer 'NaN', right 'nan', check PASS  <- WRONG ANSWER RELEASED
+R2 no match, still answered    second log ['P1  temperature  nan']: status CACHED, answer 'NaN', right None, check PASS  <- WRONG ANSWER RELEASED
+R3 dedup hides a conflict      log ['token = Ab12', 'token = aB12']: status SUPPORTED, answer 'Ab12', right: a conflict (UNCERTAIN), check PASS  <- WRONG ANSWER RELEASED
+model calls 0; wrong answers the check would PASS: 4
