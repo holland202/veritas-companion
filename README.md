@@ -1,5 +1,73 @@
 # veritas-companion
 
+<!-- 30s-demo -->
+> **Status labels.** **PROTOTYPE:** tier 0 (deterministic tools, cache, conflict flags) and the large-model
+> bridge. **NOT TRAINED / DESIGN ONLY:** the small-model tier. **NOT PRODUCTION-READY:** all of it.
+
+**Headline (measured on a Galaxy S25, [C002](experiments/C002_real_log/RESULTS.md)):** on a real Android
+log, the companion answered 5 of 8 questions per window without the model and got every lookup right. It
+used 2.67–2.86× fewer large-model tokens than the 1.5B model alone, and was more accurate on all 3 seeds.
+
+### 30-second demo: PROTOTYPE (no model, no network)
+
+```bash
+git clone https://github.com/holland202/veritas-companion && cd veritas-companion
+pip install numpy && python scripts/demo_30s.py
+```
+
+In this demo the "large model" is a rule-following test double. So the routing, statuses, cache and context
+digests are real, and the model's answers are not. Output (x86_64, Python 3.11, 2026-09-30):
+
+```
+ok  What is the pressure of P01?               SUPPORTED -> '40'     via deterministic ctx d84439b4944a
+ok  What is the pressure of P02?               UNCERTAIN -> '30'     via large_model   ctx d7df58914c05
+ok  Which asset has the highest temperature?   ESCALATE  -> 'P03'    via large_model   ctx 9a2d0d4150f3
+ok  What is the pressure of P01?               CACHED    -> '40'     via cache         ctx d84439b4944a
+ok  same question, one changed line            UNCERTAIN -> '41'     (not served stale from the cache: C007)
+    model calls 3 of 5 questions (a model-only setup makes 5)
+DEMO PASS
+```
+
+### Negative results, up front
+
+- **The 13.9× token saving from C001 does not transfer.** C001 used a log built to repeat itself. On real
+  logs, exact deduplication removes at most 8% of lines (C002).
+- **A simpler rival did as well on 2 of 3 seeds.** In C002 the control that answers with the tools and
+  never escalates (N1) matched the companion's accuracy on seeds 2 and 3, using zero model tokens.
+- **On logs nobody here designed, the tools answered nothing.** On Loghub HPC
+  ([C006b](experiments/C006b_hpc/RESULTS.md)) they answered 0 of 60, so everything went to the model.
+  The gate's safety prediction could not be tested (0 answers were ALLOWed). The first design (C006)
+  could not run at all: [kept](experiments/C006_external_logs/RESULTS.md).
+- **The cache used to let the gate ALLOW wrong answers.** Case-folded cache keys served `Ab12` for a log
+  that said `aB12` ([C007](experiments/C007_cache_collision/RESULTS.md)). This was found by a red-team
+  script on the phone and is fixed.
+
+```mermaid
+flowchart TB
+  Q[Question + log lines] --> T0{Tier 0: exact-text cache,<br/>field extraction, conflict check}
+  T0 -->|one value, with its lines| S[SUPPORTED]
+  T0 -->|two values| U[UNCERTAIN: escalate, do not guess]
+  T0 -->|no tool applies| E[ESCALATE]
+  U --> L[Large model]
+  E --> L
+  S & L --> G[Every record: status, tier, tokens,<br/>context_sha256, logged; optional sovereign-veritas gate]
+  T1[Tier 1: small model]:::off -.->|NOT TRAINED| T0
+  classDef off stroke-dasharray: 5 5
+```
+
+### Why this is not just a cache, RAG, or local inference
+
+- **Not just a cache.** A cache returns the last answer. This returns a status: `UNCERTAIN` when the log
+  holds two values, and a tool answer only when the log states it. The cache keys on exact text, because
+  a looser key released wrong answers (C007).
+- **Not just RAG.** Nothing is retrieved for the model to read. The cheap tier answers outright or steps
+  aside, and every record says which tier answered.
+- **Not local inference.** In C002 the saving came from answering lookups without any model, not from a
+  smaller model.
+- **Where it is no better:** questions outside the tools' patterns get no help at all (C006b).
+<!-- /30s-demo -->
+
+
 **A cheap efficiency layer beside a large model: deterministic tools first, a small model second,
 the large model only when the cheaper tiers cannot answer with evidence.**
 
