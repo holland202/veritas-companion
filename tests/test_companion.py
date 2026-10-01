@@ -105,3 +105,46 @@ def test_record_carries_exact_context_digest():
     want = fingerprint("What is the pressure of P01?", *lines)
     assert r1.context_sha256 == want and r2.context_sha256 == want and r2.status == "CACHED"
     assert c.ask("c", "What is the pressure of P01?", ["P01 pressure 40 "]).context_sha256 != want
+
+
+def test_tier1_parse_supported_and_fail_closed():
+    from companion.tier1 import parse_tier1_output, evidence_in_context
+    good = parse_tier1_output('{"answer": "40", "status": "SUPPORTED", "evidence": ["P01 pressure 40"], "reason": "ok", "should_escalate": false}')
+    assert good.is_valid() and good.status == "SUPPORTED" and good.answer == "40"
+    assert evidence_in_context(good.evidence, ["P01 pressure 40", "noise"])
+    assert not evidence_in_context(good.evidence, ["P01 pressure 41"])
+
+    for bad in (
+        "",
+        "not json",
+        '{"status": "SUPPORTED", "answer": "40", "evidence": [], "should_escalate": false}',
+        '{"status": "SUPPORTED", "answer": "40", "evidence": ["x"], "should_escalate": true}',
+        '{"status": "MAYBE", "answer": "40", "evidence": ["x"], "should_escalate": false}',
+        '{"status": "UNCERTAIN", "should_escalate": false}',
+    ):
+        r = parse_tier1_output(bad)
+        assert r.status == "ESCALATE" or not r.is_valid() or r.should_escalate
+
+
+def test_tier1_never_overrides_tier0_conflict():
+    from companion import Companion, AlwaysEscalateTier1
+    from companion.llm import OracleModel
+    class AcceptAll:
+        def model_id(self): return "accept-all"
+        def complete(self, p):
+            import json
+            return json.dumps({"answer": "99", "status": "SUPPORTED",
+                               "evidence": ["fake"], "reason": "x", "should_escalate": False}), 1, 1
+    lines = ["P01 pressure 40", "P01 pressure 41"]  # conflict
+    c = Companion(OracleModel(), tier1=AcceptAll())
+    r = c.ask("c", "What is the pressure of P01?", lines)
+    assert r.status == "UNCERTAIN" or r.delegated_to == "large_model"
+    assert r.delegated_to != "tier1"  # must not accept Tier-1 over a Tier-0 conflict
+
+
+def test_tier1_stub_escalates_open_questions():
+    from companion import Companion, AlwaysEscalateTier1
+    from companion.llm import OracleModel
+    c = Companion(OracleModel(), tier1=AlwaysEscalateTier1())
+    r = c.ask("o", "Which RUNNING asset is closest to overheating?", ["P01 temperature 90", "P01 status RUNNING"])
+    assert r.delegated_to == "large_model"
