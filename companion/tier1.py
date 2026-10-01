@@ -4,10 +4,9 @@ Tier 1 is NOT an authority. It may only return a structured result. SUPPORTED
 requires evidence; anything else (or malformed output) escalates. Numerical
 confidence scores are never treated as proof.
 
-No trained ~135M model is shipped with this repository (README: designed only,
-NOT TRAINED, not wired). The default backend is therefore a fail-closed stub
-that always escalates. A real backend can be supplied later without changing
-the routing policy.
+No model weights are bundled. A local Qwen ~0.5B GGUF may be served on :8081 as a
+pilot candidate via LlamaServerTier1. AlwaysEscalateTier1 remains the default
+when no real server is supplied. Pilot results are NOT registered evaluation results.
 """
 from __future__ import annotations
 
@@ -131,6 +130,78 @@ class AlwaysEscalateTier1(Tier1Backend):
         # Token estimate: whitespace words (same convention as OracleModel).
         pt = len(prompt.split())
         return payload, pt, 1
+
+
+class LlamaServerTier1(Tier1Backend):
+    """Tier-1 backend talking to a local llama.cpp server (stdlib HTTP only).
+
+    Default port 8081 so Tier-2 can keep 8080. Mirrors companion.llm.LlamaServer
+    conventions: /props for identity, /tokenize for prompt tokens, /completion
+    for generation. temperature=0, fixed seed. Backend errors propagate so
+    run_tier1 fails closed and the cascade escalates to Tier-2.
+    """
+
+    def __init__(self, url="http://127.0.0.1:8081", n_predict=96, seed=0, expected_model=None):
+        import os
+        self.url = url.rstrip("/")
+        self.n_predict = n_predict
+        self.seed = seed
+        self.expected_model = expected_model  # optional basename or path; mismatch fails closed
+        self._model_id_cache = None
+        if expected_model is not None:
+            # Fail closed at construction if the server is wrong/missing.
+            self.require_model(expected_model)
+
+    def _post(self, path, body):
+        import urllib.request
+        req = urllib.request.Request(
+            self.url + path,
+            data=json.dumps(body).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=600) as r:
+            return json.loads(r.read())
+
+    def model_id(self) -> str:
+        if self._model_id_cache is not None:
+            return self._model_id_cache
+        import urllib.request
+        with urllib.request.urlopen(self.url + "/props", timeout=30) as r:
+            p = json.loads(r.read())
+        mid = str(p.get("model_path") or p.get("default_generation_settings", {}).get("model", "unknown"))
+        self._model_id_cache = mid
+        return mid
+
+    def require_model(self, expected):
+        """Refuse unless /props reports the intended model basename (port-conflict lesson)."""
+        import os
+        got = self.model_id()
+        if expected and os.path.basename(got) != os.path.basename(expected):
+            raise RuntimeError(
+                f"Tier-1 model mismatch: server reports {os.path.basename(got)!r}, "
+                f"expected {os.path.basename(expected)!r}"
+            )
+        return got
+
+    def count_tokens(self, text: str) -> int:
+        return len(self._post("/tokenize", {"content": text})["tokens"])
+
+    def complete(self, prompt: str) -> tuple[str, int, int]:
+        # No stop on newline: structured JSON may span lines. n_predict keeps it bounded.
+        r = self._post("/completion", {
+            "prompt": prompt,
+            "n_predict": self.n_predict,
+            "temperature": 0,
+            "seed": self.seed,
+            "cache_prompt": True,
+        })
+        t = r.get("timings", {})
+        try:
+            prompt_tokens = self.count_tokens(prompt)
+        except Exception:
+            prompt_tokens = int(t.get("prompt_n", 0)) or len(prompt.split())
+        completion_tokens = int(r.get("tokens_predicted", t.get("predicted_n", 0)))
+        return (r.get("content") or "").strip(), prompt_tokens, completion_tokens
 
 
 # Prompt that forces structured output. Keep short; Tier-1 is the cheap tier.
