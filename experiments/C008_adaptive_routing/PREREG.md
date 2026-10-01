@@ -3,21 +3,22 @@
 Status: **Design / pre-registration draft** (not yet frozen for a measured run).
 
 This file records the experiment contract before any held-out evaluation seeds are used.
-Pilot seeds, if any, must be disjoint from the registered evaluation seeds.
+Pilot seeds must remain disjoint from future registered evaluation seeds.
 
 ## Research question
 
-Can an evidence-aware Tier-0 → Tier-1 → Tier-2 cascade reduce total inference cost per
-verified successful task relative to a large-model-only baseline, while maintaining a
-predefined accuracy threshold and preventing incorrect Tier-1 answers from being silently
-accepted?
+Does adding a ~0.5B Tier-1 layer reduce total computational cost enough to justify its own
+inference cost while maintaining the predefined correctness and safety boundary?
+
+(Can an evidence-aware Tier-0 → Tier-1 → Tier-2 cascade reduce `token_cost_per_correct_task`
+relative to a large-model-only baseline, without silently accepting incorrect Tier-1 answers?)
 
 ## Baselines (required)
 
 | Arm | Behaviour |
 |---|---|
 | **B0** Large-model-only | Every task → Tier-2. No companion. |
-| **B1** Existing companion | Tier-0 → Tier-2 (current `Companion` with `tier1=None`). |
+| **B1** Existing companion | Tier-0 → Tier-2 (`Companion` with `tier1=None`). |
 | **B2** Adaptive cascade | Tier-0 → Tier-1 → Tier-2 (`Companion(..., tier1=...)`). |
 
 ## Tier-1 contract (frozen)
@@ -27,13 +28,32 @@ accepted?
 - `UNCERTAIN` / `ESCALATE` / malformed / missing fields / backend error → escalate.
 - Tier-1 never overrides a Tier-0 conflict (`UNCERTAIN` from tools).
 - No numerical confidence score is treated as proof.
+- Cache hits of Tier-1 answers retain evidence and context fingerprint.
+
+## Candidate Tier-1 model (pilot only)
+
+- A local Qwen ~0.5B GGUF is available on the S25 as an **external pilot candidate**.
+- Backend: `LlamaServerTier1` (default `http://127.0.0.1:8081`; Tier-2 stays on `:8080`).
+- **No model weights are bundled** in this repository. No training is required or performed.
+- Pilot runs are **not** registered evaluation results.
+- Pilot seeds must not be reused as registered seeds.
+- **No efficiency claim is permitted** until a real backend is tested and this PREREG is frozen.
+- QNN/HTP/NPU acceleration is not a prerequisite.
+
+When no Tier-1 server is supplied, the runner uses `AlwaysEscalateTier1` (fail-closed stub)
+for plumbing checks only.
 
 ## Primary metric
 
-`cost_per_verified_successful_task` (token count as proxy when monetary cost is unavailable).
+`token_cost_per_correct_task` =
+  (Tier-1 prompt + completion tokens + Tier-2 prompt + completion tokens)
+  / number of tasks whose answer matched task truth
 
-Also report: false_accept_count / false_accept_rate, escalation rate, Tier-1 acceptance rate,
-large-model avoidance, verified efficiency vs B0/B1.
+Tier-1 inference cost is never hidden. "Correct" means matched task truth; it is not a synonym
+for gate-style "verified".
+
+Also report: accuracy, false_accept_count / rate, total tokens, Tier-0/1/2 call counts,
+Tier-1 accepted, large-model avoidance, Tier-1 and Tier-2 token splits, wall-clock time.
 
 ## Safety metric (highest priority)
 
@@ -46,37 +66,26 @@ Desired: uncertain → escalate, never uncertain → guess.
 - Pilot (debug) seeds ≠ registered evaluation seeds.
 - Record: dataset/source, seed, task count, categories, model versions, prompts, routing
   config, code revision, evaluation config.
-- Prefer the existing C003-style task generator (or a documented extension) so Tier-0 tools
-  can actually fire; do not invent hard tasks solely to make Tier-1 look useful.
-
-## Task categories (minimum mix)
-
-A deterministic/simple lookup · B structured transformation · C multi-field reasoning ·
-D ambiguous/conflicting · E outside Tier-0 · F intended for Tier-2.
+- Prefer the existing C003-style task generator so Tier-0 tools can actually fire.
 
 ## Negative controls
 
 - **N1** No escalation: Tier-1 forced to answer (exposes whether escalation protects correctness).
-- **N2** Random routing (Tier-1 vs Tier-2 opportunities kept comparable).
-- **N3** Tier-1-only (no Tier-2 fallback).
-
-Reuse an existing control if it already answers the same question.
-
-## Known blocker (recorded before any claim)
-
-No ~135M (or other) small local model is wired or trained in this repository
-(README status table: "designed only, NOT TRAINED, not wired").
-
-The default Tier-1 backend is `AlwaysEscalateTier1`: a fail-closed stub that always
-escalates. Plumbing, logging, verification, and fail-closed behaviour can be tested;
-**any claim that Tier-1 reduces Tier-2 calls or tokens requires a real small-model backend
-and a frozen registration after that backend is available.**
-
-QNN/HTP/NPU acceleration is not a prerequisite (§14 of the design note).
+- **N2** Random routing (optional if informative).
+- **N3** Tier-1-only (optional).
 
 ## Interpretation categories (do not collapse)
 
 Positive · Null · Negative · Partial (by task class).
+
+## Scientific boundary
+
+After this implementation the architecture is:
+
+  Tier 0 → real local Tier 1 (when server supplied) → Tier 2 fallback
+
+The scientific result remains **UNKNOWN**. No claim that Tier-1 is useful, accurate, cheaper,
+or faster is permitted until a frozen registered run says so.
 
 ## Code revision
 
