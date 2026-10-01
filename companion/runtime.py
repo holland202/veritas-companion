@@ -26,10 +26,12 @@ class Delegation:
     status: str
     escalated: bool
     final_result: str
-    cached_origin: str | None = None  # for a CACHED answer: the tier that produced it ("deterministic" or "large_model")
+    cached_origin: str | None = None  # for a CACHED answer: the tier that produced it ("deterministic", "large_model", "tier1")
     # fingerprint() of the exact question and context lines the answer was computed from (C007). A consumer
     # holding the lines can recompute it; a cached answer carries the key of the context it was looked up for.
     context_sha256: str | None = None
+    # Evidence lines retained on Tier-1 (and cache hits of Tier-1) answers so provenance is not lost.
+    evidence: list | None = None
 
 
 class Companion:
@@ -99,18 +101,23 @@ class Companion:
             # A cached answer keeps the provenance of the tier that produced it. Found 2026-09-27 while
             # wiring the companion to the sovereign-veritas gate: CACHED alone could not say whether a
             # deterministic tool or the large model had answered, so a consumer could not tell which to trust.
-            value, origin = self.cache[key]
-            return self._record(task_id, question, t0, "cache", 0, 0, Result("CACHED", value), value,
-                                cached_origin=origin)
+            # Cache entry is (value, origin, evidence). Evidence is preserved for Tier-1 answers (C008).
+            entry = self.cache[key]
+            value, origin = entry[0], entry[1]
+            evidence = entry[2] if len(entry) > 2 else []
+            return self._record(task_id, question, t0, "cache", 0, 0,
+                                Result("CACHED", value, evidence or []), value,
+                                cached_origin=origin, evidence=evidence or None)
         r = self.cheap_answer(ctx, question)
         if r.status == "SUPPORTED":
-            self.cache[key] = (r.value, "deterministic")
-            return self._record(task_id, question, t0, "deterministic", 0, 0, r, r.value)
+            self.cache[key] = (r.value, "deterministic", list(r.evidence or []))
+            return self._record(task_id, question, t0, "deterministic", 0, 0, r, r.value,
+                                evidence=list(r.evidence or []) or None)
         # Tier-0 conflict or no tool: escalate. Never let Tier-1 override a conflict flag.
         if r.status == "UNCERTAIN":
             t_cheap = time.perf_counter() - t0
             text, pt, ct = self.model.complete(PROMPT.format(context="\n".join(ctx), question=question))
-            self.cache[key] = (text, "large_model")
+            self.cache[key] = (text, "large_model", [])
             return self._record(task_id, question, t0, "large_model", pt, ct, r, text, seconds=t_cheap)
 
         # Optional Tier-1 (C008). Fail-closed: any invalid / non-SUPPORTED result escalates to Tier-2.
@@ -118,28 +125,30 @@ class Companion:
             from .tier1 import run_tier1
             t1r, t1_pt, t1_ct = run_tier1(self.tier1, question, ctx)
             if t1r.is_valid() and t1r.status == "SUPPORTED" and not t1r.should_escalate:
-                # Accept only with evidence; cache as tier1 origin.
-                self.cache[key] = (t1r.answer, "tier1")
+                # Accept only with evidence; cache as tier1 origin with evidence retained.
+                self.cache[key] = (t1r.answer, "tier1", list(t1r.evidence or []))
                 t_cheap = time.perf_counter() - t0
-                # Record Tier-1 tokens in the large_* fields for continuity with existing log consumers;
-                # delegated_to distinguishes the tier. False-accept tracking is the experiment's job.
+                # Tier-1 tokens recorded in large_* fields for log continuity; delegated_to == "tier1"
+                # distinguishes them. Runner metrics attribute cost by delegated_to.
                 return self._record(
                     task_id, question, t0, "tier1", t1_pt, t1_ct,
                     Result("SUPPORTED", t1r.answer, t1r.evidence), t1r.answer, seconds=t_cheap,
+                    evidence=list(t1r.evidence or []),
                 )
             # else: fall through to Tier-2 (invalid, UNCERTAIN, ESCALATE, or verification failure)
 
         t_cheap = time.perf_counter() - t0
         text, pt, ct = self.model.complete(PROMPT.format(context="\n".join(ctx), question=question))
-        self.cache[key] = (text, "large_model")
+        self.cache[key] = (text, "large_model", [])
         # companion_seconds is the cheap tiers' time only, set before the log line is written (it used to be
         # set after, so the JSONL line held the total including the model call while the object held t_cheap).
         return self._record(task_id, question, t0, "large_model", pt, ct, r, text, seconds=t_cheap)
 
-    def _record(self, task_id, question, t0, to, pt, ct, r, final, cached_origin=None, seconds=None):
+    def _record(self, task_id, question, t0, to, pt, ct, r, final, cached_origin=None, seconds=None, evidence=None):
         rec = Delegation(task_id, "lookup" if (self.LOOKUP.match(question) or self.KV_LOOKUP.match(question)) else "open", to,
                          time.perf_counter() - t0 if seconds is None else seconds, pt, ct, str(r.value), r.status,
-                         to == "large_model", str(final), cached_origin, getattr(self, "_key", None))
+                         to == "large_model", str(final), cached_origin, getattr(self, "_key", None),
+                         evidence if evidence is not None else (list(r.evidence) if getattr(r, "evidence", None) else None))
         self.log.append(rec)
         if self.log_path:
             with open(self.log_path, "a", encoding="utf-8") as fh:
