@@ -2,7 +2,7 @@
 
 <!-- 30s-demo -->
 > **Status labels.** **PROTOTYPE:** tier 0 (deterministic tools, cache, conflict flags) and the large-model
-> bridge. **NOT TRAINED / DESIGN ONLY:** the small-model tier weights. **NOT PRODUCTION-READY:** all of it.
+> bridge. **Tier-1 adapter implemented; weights external pilot only:** Qwen ~0.5B GGUF candidate, not bundled. **NOT PRODUCTION-READY:** all of it.
 
 **Headline (measured on a Galaxy S25, [C002](experiments/C002_real_log/RESULTS.md)):** on a real Android
 log, the companion answered 5 of 8 questions per window without the model and got every lookup right. It
@@ -91,8 +91,8 @@ with a status and its evidence, and every delegation is logged, so any saving is
 | C001 on the Adreno GPU (R-ADRENO) | **6 of 6 held**; same tokens, some different model answers than on the CPU |
 | [C005](experiments/C005_gate_bridge/): every delegation through the sovereign-veritas gate | **3 of 3 held**: 640 records → 640 packages, all CONSISTENT; 480 ALLOWed answers, 0 wrong; every conflict, escalation and cached model answer DEFERred |
 | tier 1 routing contract + fail-closed insertion (`companion/tier1.py`, `Companion(tier1=…)`) | **built, tested**; default backend is always-escalate stub |
-| tier 1, small local model (about 135M) weights | **NOT TRAINED, not wired** — blocker for any efficiency claim |
-| [C008](experiments/C008_adaptive_routing/): adaptive Tier-0 → Tier-1 → Tier-2 cascade | **plumbing implemented**; measured result blocked until a real Tier-1 backend exists |
+| Tier-1 local small-model backend (`LlamaServerTier1`, default :8081) | **adapter implemented**; no model bundled; Qwen ~0.5B available as external pilot candidate; no efficiency claim yet |
+| [C008](experiments/C008_adaptive_routing/): adaptive Tier-0 → Tier-1 → Tier-2 cascade | **plumbing + real Tier-1 adapter**; pilot only; scientific result UNKNOWN |
 | [C001](experiments/C001_context_economy/): does tier 0 cut the large model's tokens without losing accuracy? | **6 of 6 held** on the S25: 13.9× fewer large-model tokens, 21× less wall time with overhead counted, accuracy within one question of the model alone (equal on seed 1, better on seed 2, one question worse on seed 3) |
 | token-veritas context selection as a companion job | designed only |
 | veritas-holo state fingerprints (E003) as a companion job | designed only |
