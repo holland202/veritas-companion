@@ -2,7 +2,7 @@
 
 <!-- 30s-demo -->
 > **Status labels.** **PROTOTYPE:** tier 0 (deterministic tools, cache, conflict flags) and the large-model
-> bridge. **NOT TRAINED / DESIGN ONLY:** the small-model tier. **NOT PRODUCTION-READY:** all of it.
+> bridge. **NOT TRAINED / DESIGN ONLY:** the small-model tier weights. **NOT PRODUCTION-READY:** all of it.
 
 **Headline (measured on a Galaxy S25, [C002](experiments/C002_real_log/RESULTS.md)):** on a real Android
 log, the companion answered 5 of 8 questions per window without the model and got every lookup right. It
@@ -47,12 +47,13 @@ flowchart TB
   Q[Question + log lines] --> T0{Tier 0: exact-text cache,<br/>field extraction, conflict check}
   T0 -->|one value, with its lines| S[SUPPORTED]
   T0 -->|two values| U[UNCERTAIN: escalate, do not guess]
-  T0 -->|no tool applies| E[ESCALATE]
+  T0 -->|no tool applies| T1{Tier 1: structured small-model<br/>SUPPORTED only with evidence}
   U --> L[Large model]
-  E --> L
+  T1 -->|SUPPORTED + evidence in context| S
+  T1 -->|UNCERTAIN / invalid / no model| L
   S & L --> G[Every record: status, tier, tokens,<br/>context_sha256, logged; optional sovereign-veritas gate]
-  T1[Tier 1: small model]:::off -.->|NOT TRAINED| T0
-  classDef off stroke-dasharray: 5 5
+  T1:::partial
+  classDef partial stroke-dasharray: 5 5
 ```
 
 ### Why this is not just a cache, RAG, or local inference
@@ -89,7 +90,9 @@ with a status and its evidence, and every delegation is logged, so any saving is
 | [C002](experiments/C002_real_log/): the same companion on a real Android log | **4 of 4 held**: every lookup right; more accurate than the model alone on all 3 seeds; 2.67-2.86× fewer tokens. Exact dedup found almost nothing (≤ 8% of lines), so C001's 13.9× does not transfer |
 | C001 on the Adreno GPU (R-ADRENO) | **6 of 6 held**; same tokens, some different model answers than on the CPU |
 | [C005](experiments/C005_gate_bridge/): every delegation through the sovereign-veritas gate | **3 of 3 held**: 640 records → 640 packages, all CONSISTENT; 480 ALLOWed answers, 0 wrong; every conflict, escalation and cached model answer DEFERred |
-| tier 1, small local model (about 135M) for fuzzy-but-small jobs | **designed only, NOT TRAINED, not wired** |
+| tier 1 routing contract + fail-closed insertion (`companion/tier1.py`, `Companion(tier1=…)`) | **built, tested**; default backend is always-escalate stub |
+| tier 1, small local model (about 135M) weights | **NOT TRAINED, not wired** — blocker for any efficiency claim |
+| [C008](experiments/C008_adaptive_routing/): adaptive Tier-0 → Tier-1 → Tier-2 cascade | **plumbing implemented**; measured result blocked until a real Tier-1 backend exists |
 | [C001](experiments/C001_context_economy/): does tier 0 cut the large model's tokens without losing accuracy? | **6 of 6 held** on the S25: 13.9× fewer large-model tokens, 21× less wall time with overhead counted, accuracy within one question of the model alone (equal on seed 1, better on seed 2, one question worse on seed 3) |
 | token-veritas context selection as a companion job | designed only |
 | veritas-holo state fingerprints (E003) as a companion job | designed only |
@@ -141,6 +144,7 @@ giving worse answers. In C001, tier 0 spends no model tokens; its time is logged
     python -m pytest -q
     python experiments/C001_context_economy/run.py --seed 101 --oracle     # plumbing check, NOT A RESULT
     python experiments/C001_context_economy/run.py --seed 101              # needs llama-server on :8080
+    python experiments/C008_adaptive_routing/run.py --seed 101 --oracle    # C008 plumbing (stub Tier-1)
 
 Standard library plus NumPy; runs on a phone in Termux.
 
