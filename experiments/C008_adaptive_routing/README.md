@@ -4,44 +4,44 @@ Evidence-aware cascade: **Tier-0 (deterministic) → Tier-1 (small model) → Ti
 
 ## Purpose
 
-Test whether selective escalation reduces inference cost per *verified successful* task
-without silently accepting incorrect Tier-1 answers.
-
-This is **not** a claim that a small model is generally as good as a large model.
+Test whether selective escalation reduces inference cost per *correct* task without silently
+accepting incorrect Tier-1 answers. This is not a claim that a small model is generally as good
+as a large model.
 
 ## Status
 
 | piece | state |
 |---|---|
-| Routing policy & fail-closed contract | **implemented** (`companion/tier1.py`, `Companion(tier1=...)`) |
+| Routing policy & fail-closed contract | **implemented** |
 | Structured Tier-1 schema + evidence check | **implemented** |
-| Experiment runner (B0/B1/B2/N1) | **implemented** (`run.py`) |
-| ~135M (or any) small local model | **not present** — README of the repo already labels Tier-1 "designed only, NOT TRAINED, not wired" |
-| Registered measured result | **blocked** until a real Tier-1 backend exists and PREREG is frozen |
+| `LlamaServerTier1` (local llama.cpp, default :8081) | **implemented** |
+| Experiment runner (B0/B1/B2/N1) | **implemented** |
+| Qwen ~0.5B GGUF weights | **external pilot candidate only** — not bundled |
+| Registered measured result | **not yet** — pilot only; scientific result UNKNOWN |
 
-## Quick plumbing check (no model server required)
+## Plumbing check (no model server)
 
 ```bash
 python experiments/C008_adaptive_routing/run.py --seed 101 --oracle
 ```
 
-Under the default `AlwaysEscalateTier1` stub, B1 and B2 must be identical (the stub never
-answers). The runner exits non-zero if they diverge.
+Under `AlwaysEscalateTier1`, B1 and B2 must be identical.
 
-## Adding a real Tier-1 backend
+## Real Tier-1 pilot (requires llama.cpp on :8081)
 
-Implement `Tier1Backend.complete(prompt) -> (text, prompt_tokens, completion_tokens)` and
-pass the instance as `Companion(..., tier1=your_backend)`. The model must emit the JSON
-schema in `companion/tier1.py` (or anything `parse_tier1_output` accepts). Invalid or
-unevidenced `SUPPORTED` answers escalate.
+```bash
+python experiments/C008_adaptive_routing/run.py --seed 101 \
+  --tier1-server http://127.0.0.1:8081 \
+  --tier1-model qwen2.5-0.5b-instruct-q4_k_m.gguf
+```
 
-Do not train a new model solely to run C008; wire the smallest practical local model that
-is already available in the environment, or document the blocker (as done here).
+Pilot seeds must not become registered seeds. No efficiency claim until PREREG is frozen.
 
-## Metrics the runner reports
+## Metrics
 
-- total tokens, accuracy, false_accept / false_accept_rate
-- per-tier call counts
-- cost_per_verified_successful_task (token proxy)
+- `token_cost_per_correct_task` (Tier-1 + Tier-2 tokens / correct answers)
+- accuracy, false_accept_count / rate
+- per-tier call counts and token splits
+- large-model avoidance, wall time
 
-See `PREREG.md` for the full contract and interpretation categories.
+See `PREREG.md` for the full contract.
