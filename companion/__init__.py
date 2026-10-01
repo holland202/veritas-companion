@@ -3,6 +3,10 @@ second, the large model only when cheaper methods cannot answer with evidence. T
 never the authority. Every delegation is logged so its usefulness is measured, not felt."""
 from .fingerprint import fingerprint, normalize
 from .runtime import Companion, Result
+from .tier1 import Tier1Result, AlwaysEscalateTier1, parse_tier1_output
 
 __version__ = "0.1.0"
-__all__ = ["Companion", "Result", "fingerprint", "normalize"]
+__all__ = [
+    "Companion", "Result", "fingerprint", "normalize",
+    "Tier1Result", "AlwaysEscalateTier1", "parse_tier1_output",
+]
