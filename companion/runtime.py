@@ -36,8 +36,12 @@ class Companion:
     LOOKUP = re.compile(r"^What is the (pressure|temperature|status) of (P\d+)\?$")
     KV_LOOKUP = re.compile(r"^What is the value of (.+)\?$")
 
-    def __init__(self, model, escalate_on_conflict=True, dedup=True, log_path=None):
+    def __init__(self, model, escalate_on_conflict=True, dedup=True, log_path=None, tier1=None):
+        """model is the Tier-2 (large) backend. tier1, if given, is a Tier1Backend inserted
+        between deterministic tools and the large model (C008). When tier1 is None the
+        behaviour is identical to the pre-C008 companion (Tier-0 → Tier-2)."""
         self.model, self.escalate_on_conflict, self.dedup_on = model, escalate_on_conflict, dedup
+        self.tier1 = tier1  # None | Tier1Backend
         self.cache, self.log, self.log_path = {}, [], log_path
 
     # tier 0: deterministic tools -------------------------------------------------------------------------
@@ -102,6 +106,29 @@ class Companion:
         if r.status == "SUPPORTED":
             self.cache[key] = (r.value, "deterministic")
             return self._record(task_id, question, t0, "deterministic", 0, 0, r, r.value)
+        # Tier-0 conflict or no tool: escalate. Never let Tier-1 override a conflict flag.
+        if r.status == "UNCERTAIN":
+            t_cheap = time.perf_counter() - t0
+            text, pt, ct = self.model.complete(PROMPT.format(context="\n".join(ctx), question=question))
+            self.cache[key] = (text, "large_model")
+            return self._record(task_id, question, t0, "large_model", pt, ct, r, text, seconds=t_cheap)
+
+        # Optional Tier-1 (C008). Fail-closed: any invalid / non-SUPPORTED result escalates to Tier-2.
+        if self.tier1 is not None:
+            from .tier1 import run_tier1
+            t1r, t1_pt, t1_ct = run_tier1(self.tier1, question, ctx)
+            if t1r.is_valid() and t1r.status == "SUPPORTED" and not t1r.should_escalate:
+                # Accept only with evidence; cache as tier1 origin.
+                self.cache[key] = (t1r.answer, "tier1")
+                t_cheap = time.perf_counter() - t0
+                # Record Tier-1 tokens in the large_* fields for continuity with existing log consumers;
+                # delegated_to distinguishes the tier. False-accept tracking is the experiment's job.
+                return self._record(
+                    task_id, question, t0, "tier1", t1_pt, t1_ct,
+                    Result("SUPPORTED", t1r.answer, t1r.evidence), t1r.answer, seconds=t_cheap,
+                )
+            # else: fall through to Tier-2 (invalid, UNCERTAIN, ESCALATE, or verification failure)
+
         t_cheap = time.perf_counter() - t0
         text, pt, ct = self.model.complete(PROMPT.format(context="\n".join(ctx), question=question))
         self.cache[key] = (text, "large_model")
