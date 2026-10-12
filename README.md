@@ -149,3 +149,7 @@ giving worse answers. In C001, tier 0 spends no model tokens; its time is logged
 Standard library plus NumPy; runs on a phone in Termux.
 
 *Vincit Omnia Veritas.*
+
+## Related AI governance research
+
+Veritas Companion explores deterministic extraction, caching, and model delegation. Sovereign Veritas separately explores fail-closed authorization for proposed actions; a Companion answer, cache hit, or model recommendation is not authorization to execute. See [Sovereign Veritas — experimental AI governance and action permission gate](https://github.com/holland202/sovereign-veritas) for its current maintenance-only status, recorded failures, test contract, and explicit limitations. This cross-reference is for research navigation, not an integrated-system or independent-verification claim.
